@@ -200,7 +200,7 @@ footer p{margin:0 0 8px}
 
 <script>
 'use strict';
-const CFG={url:'https://hwwjwifqkpguwqzmktaa.supabase.co',key:'sb_publishable_JIYngpjIUBWzYZJzJKmlQQ_-CT7VWjV'};
+const CFG={url:'https://hwwjwifqkpguwqzmktaa.supabase.co',key:'sb_publishable_JIYngpjIUBWzYZJzJKmlQQ_-CT7VWjV',alert:'4bd670d5-c8b4-40d0-93d2-a145f23e8754'};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ALPHA='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -263,6 +263,18 @@ async function sb(path,body,extra){
 }
 function showErr(el,t){el.textContent=t;el.hidden=!t}
 
+/* ---------- Alerte e-mail pour l'atelier (sans donnée personnelle : type, appareil, code) ---------- */
+function alertMail(code,kind,model){
+ if(!CFG.alert)return;
+ const m=String(model).replace(/https?:\/\/\S+/gi,'…').replace(/[\u0000-\u001f\u007f]+/g,' ').trim().slice(0,40);
+ try{
+  fetch('https://api.web3forms.com/submit',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({
+   access_key:CFG.alert,botcheck:'',from_name:'HMAIG Services · espace client',
+   subject:'Nouvelle demande en ligne '+code+(kind==='sav'?' (SAV magasin)':''),
+   message:"Une nouvelle demande vient d'arriver sur votre espace client.\n\nType : "+(kind==='sav'?'SAV magasin partenaire':'Réparation particulier')+"\nAppareil : "+m+"\nCode : "+code+"\n\nPour la lire et y répondre : ouvrez https://atelier.hmaigservices.fr/ puis « Demandes clients »."})}).catch(()=>{});
+ }catch(e){}
+}
+
 /* ---------- Envoi d'une demande ---------- */
 $('#form').addEventListener('submit',async e=>{
  e.preventDefault();if(sending)return;
@@ -299,7 +311,7 @@ $('#form').addEventListener('submit',async e=>{
  }
  sending=false;btn.disabled=false;btn.textContent='Envoyer ma demande';
  if(!ok)return fail("Impossible d'envoyer la demande pour le moment. Réessayez dans quelques minutes ou contactez-nous directement.");
- lastCode=code;if(!bot)addCode(code,model);
+ lastCode=code;if(!bot){addCode(code,model);alertMail(code,row.kind,model)}
  $('#okCode').textContent=code;$('#formWrap').hidden=true;$('#okWrap').hidden=false;window.scrollTo({top:0,behavior:'smooth'});
 });
 $('#btnCopy').onclick=async()=>{
