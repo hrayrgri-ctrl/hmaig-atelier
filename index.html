@@ -285,7 +285,7 @@ a.secondary{text-decoration:none;display:inline-block}
 @media(max-width:640px){.qrline{grid-template-columns:1fr}.qrimg{justify-self:start}}
 #printArea .poster{width:100%;max-width:150mm;margin:10mm auto 0;text-align:center;color:#15181a}
 #printArea .poster .plogo{width:34mm;height:auto;margin:0 auto 8mm;display:block}
-#printArea .poster h1{font:800 34pt/1.05 var(--disp);letter-spacing:-.03em;margin:0 0 4mm}
+#printArea .poster h1{font:800 30pt/1.08 var(--disp);letter-spacing:-.03em;margin:0 0 4mm;text-wrap:balance}
 #printArea .poster .pl{font-size:15pt;margin:0 0 10mm;color:#4a5358}
 #printArea .poster .pqr{width:90mm;height:90mm;display:block;margin:0 auto 8mm}
 #printArea .poster .pc{font-size:15pt;margin:0 0 4mm}
@@ -904,7 +904,7 @@ function linkPanel(){
 }
 function printPoster(){
  const s=db.settings;
- printHTML(`<div class="poster"><img class="plogo" src="${LOGO_MARK}" alt=""><h1>Votre appareil est en panne ?</h1><p class="pl">Smartphones · PC portables · consoles</p><img class="pqr" src="${QR_SVG}" alt="QR code"><p class="pc">Scannez pour envoyer votre demande,<br>puis suivez votre réparation en ligne.</p><p class="pu">${esc(SB.client.replace(/^https?:\/\//,''))}</p><p class="ps">${esc(s.company)} · 20 ans d'expérience${s.phone?' · '+esc(s.phone):''}</p></div>`);
+ printHTML(`<div class="poster"><img class="plogo" src="${LOGO_MARK}" alt=""><h1>Votre appareil est en panne&nbsp;?</h1><p class="pl">Smartphones · PC portables · consoles</p><img class="pqr" src="${QR_SVG}" alt="QR code"><p class="pc">Scannez pour envoyer votre demande,<br>puis suivez votre réparation en ligne.</p><p class="pu">${esc(SB.client.replace(/^https?:\/\//,''))}</p><p class="ps">${esc(s.company)} · 20 ans d'expérience${s.phone?' · '+esc(s.phone):''}</p></div>`);
 }
 
 /* ---------- Fiche d'une demande ---------- */

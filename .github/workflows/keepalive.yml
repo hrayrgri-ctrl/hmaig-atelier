@@ -11,19 +11,20 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Ping Supabase
         run: |
           curl -fsS --retry 3 -X POST "https://hwwjwifqkpguwqzmktaa.supabase.co/rest/v1/rpc/ping" \
             -H "apikey: sb_publishable_JIYngpjIUBWzYZJzJKmlQQ_-CT7VWjV" \
             -H "Content-Type: application/json" -d '{}'
       # GitHub désactive les tâches planifiées d'un dépôt public sans activité depuis 60 jours :
-      # une fois par mois, on enregistre donc un petit commit vide.
-      - uses: actions/checkout@v4
-        if: ${{ github.event_name == 'schedule' && github.run_number % 10 == 0 }}
+      # le 1er de chaque mois, on enregistre donc un petit commit vide.
       - name: Activité mensuelle
-        if: ${{ github.event_name == 'schedule' && github.run_number % 10 == 0 }}
+        if: ${{ github.event_name == 'schedule' }}
         run: |
-          git config user.name "keepalive"
-          git config user.email "keepalive@users.noreply.github.com"
-          git commit --allow-empty -m "keepalive: activité mensuelle"
-          git push
+          if [ "$(date -u +%d)" = "01" ]; then
+            git config user.name "keepalive"
+            git config user.email "keepalive@users.noreply.github.com"
+            git commit --allow-empty -m "keepalive: activité mensuelle"
+            git push
+          fi
