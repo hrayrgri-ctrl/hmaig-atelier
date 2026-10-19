@@ -277,6 +277,21 @@ input:focus,select:focus,textarea:focus{border-color:var(--ink);box-shadow:0 0 0
  @page{margin:14mm}
 }
 
+/* ---------- Espace client (atelier) ---------- */
+a.secondary{text-decoration:none;display:inline-block}
+.qrline{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:20px;align-items:center}
+.qrimg{width:150px;height:150px;background:#fff;padding:8px;border:1px solid var(--line);border-radius:12px}
+.qrbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+@media(max-width:640px){.qrline{grid-template-columns:1fr}.qrimg{justify-self:start}}
+#printArea .poster{width:100%;max-width:150mm;margin:10mm auto 0;text-align:center;color:#15181a}
+#printArea .poster .plogo{width:34mm;height:auto;margin:0 auto 8mm;display:block}
+#printArea .poster h1{font:800 34pt/1.05 var(--disp);letter-spacing:-.03em;margin:0 0 4mm}
+#printArea .poster .pl{font-size:15pt;margin:0 0 10mm;color:#4a5358}
+#printArea .poster .pqr{width:90mm;height:90mm;display:block;margin:0 auto 8mm}
+#printArea .poster .pc{font-size:15pt;margin:0 0 4mm}
+#printArea .poster .pu{font:800 17pt var(--disp);margin:0 0 12mm}
+#printArea .poster .ps{font-size:11pt;color:#4a5358;margin:0;border-top:1px solid #c9cfd2;padding-top:5mm}
+
 /* ---------- Adaptatif ---------- */
 @media(max-width:1100px){
  .hero-main{max-width:100%}
@@ -323,7 +338,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--ink);box-shadow:0 0 0
 <aside class="side">
   <div class="brand"><span class="brand-mark" role="img" aria-label="Logo HMAIG Services"></span><div><h1>HMAIG Services</h1><small>Atelier nomade, 20 ans</small></div></div>
   <nav class="nav" id="nav" aria-label="Navigation principale"></nav>
-  <div class="side-note"><strong>Espace privé</strong>Vos données restent dans ce navigateur. Aucun service externe, aucun envoi automatique aux clients.</div>
+  <div class="side-note" id="sideNote"><strong>Espace privé</strong>Vos données restent dans ce navigateur. Aucun service externe, aucun envoi automatique aux clients.</div>
 </aside>
 <main class="main">
   <header class="topbar">
@@ -468,6 +483,7 @@ const savOpen=s=>!['Retourné au magasin','Clôturé'].includes(s.status);
 const ico=p=>`<svg viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`;
 const NAV=[
  ['dash',ico('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>'),"Vue d'ensemble"],
+ ['inbox',ico('<path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 3h6l1-3h5"/>'),'Demandes clients'],
  ['repairs',ico('<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>'),'Réparations'],
  ['sav',ico('<path d="M4 8h16M16 4l4 4-4 4"/><path d="M20 16H4M8 12l-4 4 4 4"/>'),'SAV magasins'],
  ['clients',ico('<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>'),'Clients & appareils'],
@@ -485,13 +501,14 @@ const VIEWS={
  clients:{t:()=>'Clients & appareils',fn:()=>vClients(),after:()=>cliList(),act:['+ Nouveau client','openClientForm()']},
  docs:{t:()=>'Devis & factures',fn:()=>vDocs(),after:()=>docList(),act:['+ Nouveau devis',"openDocPicker('devis')"]},
  stock:{t:()=>'Pièces & stock',fn:()=>vStock(),after:()=>partList(),act:['+ Nouvelle pièce','openPartForm()']},
+ inbox:{t:()=>'Demandes clients',fn:()=>vInbox()},
  alerts:{t:()=>'Notifications',fn:()=>vAlerts()},
  settings:{t:()=>'Paramètres',fn:()=>vSettings()}
 };
 function go(v){view=v;render();window.scrollTo({top:0})}
 function render(){
  const V=VIEWS[view],n=alerts().length;
- $('#nav').innerHTML=NAV.map(([k,i,l])=>`<button class="${k===view?'active':''}" onclick="go('${k}')" aria-label="${esc(l)}"><i>${i}</i><span>${esc(l)}</span>${k==='alerts'&&n?`<em class="badge">${n}</em>`:''}</button>`).join('');
+ $('#nav').innerHTML=NAV.filter(x=>x[0]!=='inbox'||SB.on).map(([k,i,l])=>`<button class="${k===view?'active':''}" onclick="go('${k}')" aria-label="${esc(l)}"><i>${i}</i><span>${esc(l)}</span>${k==='alerts'&&n?`<em class="badge">${n}</em>`:''}${k==='inbox'&&INBOX.new?`<em class="badge">${INBOX.new}</em>`:''}</button>`).join('');
  const dt=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
  $('#eyebrow').textContent=dt.charAt(0).toUpperCase()+dt.slice(1);
  $('#title').textContent=V.t();
@@ -558,7 +575,7 @@ function vDash(){
  const months=[];for(let i=5;i>=0;i--){const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-i);months.push(d.getFullYear()+'-'+pad(d.getMonth()+1))}
  const ca=months.map(k=>sum(db.docs.filter(d=>d.kind==='facture'&&d.date.slice(0,7)===k),d=>totals(d).ttc));const mxc=Math.max(1,...ca);
  return `<section class="hero"><div class="hero-main"><h3>Bonjour ${esc(db.settings.company.split(' ')[0])}.</h3><p class="brief">${brief(open.length,late.length,pret,devis)}</p>
-  <div class="hero-actions"><button class="primary" onclick="openRepairForm()">+ Nouvelle réparation</button><button class="ghost" onclick="openSavForm()">Enregistrer un SAV</button>${AL.length?`<button class="ghost" onclick="go('alerts')">${AL.length} notification${AL.length>1?'s':''} à traiter</button>`:''}</div></div>
+  <div class="hero-actions"><button class="primary" onclick="openRepairForm()">+ Nouvelle réparation</button><button class="ghost" onclick="openSavForm()">Enregistrer un SAV</button>${SB.on&&INBOX.new?`<button class="ghost" onclick="go('inbox')">${INBOX.new} demande${INBOX.new>1?'s':''} en ligne</button>`:''}${AL.length?`<button class="ghost" onclick="go('alerts')">${AL.length} notification${AL.length>1?'s':''} à traiter</button>`:''}</div></div>
   <div class="hero-logo" role="img" aria-label="HMAIG Services, réparation d'ordinateurs et smartphones"></div>
   <div class="hero-kpis">${hk('En cours',open.length,late.length?`dont <b class="bad">${late.length} en retard</b>`:'dossiers à suivre',"go('repairs')")}${hk('Devis à valider',devis,'sans réponse',"go('repairs')",devis>0)}${hk('Prêts à rendre',pret,'clients à prévenir',"go('alerts')")}${hk('SAV magasins',db.sav.filter(savOpen).length,'demandes ouvertes',"go('sav')")}</div></section>
  <div class="content"><div class="stack">
@@ -591,13 +608,14 @@ function alerts(){
  db.sav.forEach(s=>{const nm=cl(s.storeId).name+' — '+s.device;
   if(s.status==='Reçu')add({key:'sav:'+s.id,lv:'info',ic:'⇄',title:'SAV à qualifier',text:nm+' · reçu le '+fmtDL(s.received),kind:'sav',sid:s.id});
   if(s.status==='Prêt à retourner')add({key:'savpret:'+s.id,lv:'ok',ic:'✓',title:'SAV prêt à retourner',text:nm+' · prévenir le magasin',kind:'savpret',sid:s.id})});
+ INBOX.list.filter(d=>d.status==='nouvelle').forEach(d=>add({key:'dem:'+d.id,lv:'info',ic:'✉',title:d.kind==='sav'?'Nouvelle demande SAV en ligne':'Nouvelle demande en ligne',text:(d.kind==='sav'?d.store:d.name)+' — '+d.model+' · reçue '+dWhen(d.created_at),kind:'demande',did:d.id}));
  const o={danger:0,warn:1,ok:2,info:3};
  return A.sort((a,b)=>o[a.lv]-o[b.lv]);
 }
 function alertHTML(a){
- return `<div class="al ${a.lv}"><div class="ic">${a.ic}</div><div class="tx"><b>${esc(a.title)}</b><span>${esc(a.text)}</span><div class="ac"><button class="secondary small" onclick="openAlert('${a.key}')">Ouvrir</button>${a.kind!=='stock'?`<button class="secondary small" onclick="msgByKey('${a.key}')">✉ Message</button>`:''}<button class="secondary small" onclick="dismissAlert('${a.key}')">✓ Traité</button></div></div></div>`;
+ return `<div class="al ${a.lv}"><div class="ic">${a.ic}</div><div class="tx"><b>${esc(a.title)}</b><span>${esc(a.text)}</span><div class="ac"><button class="secondary small" onclick="openAlert('${a.key}')">Ouvrir</button>${a.kind!=='stock'&&a.kind!=='demande'?`<button class="secondary small" onclick="msgByKey('${a.key}')">✉ Message</button>`:''}<button class="secondary small" onclick="dismissAlert('${a.key}')">✓ Traité</button></div></div></div>`;
 }
-function openAlert(key){const a=alerts().find(x=>x.key===key);if(!a)return;if(a.rid)openRepair(a.rid);else if(a.sid)openSav(a.sid);else if(a.pid)openPartForm(a.pid)}
+function openAlert(key){const a=alerts().find(x=>x.key===key);if(!a)return;if(a.rid)openRepair(a.rid);else if(a.sid)openSav(a.sid);else if(a.pid)openPartForm(a.pid);else if(a.did)openDemande(a.did)}
 function dismissAlert(key){db.dismissed[key]=today();save();render()}
 function vAlerts(){
  const A=alerts(),nd=Object.keys(db.dismissed).length;
@@ -716,7 +734,7 @@ function vSettings(){
  </div></div></section>
  <div class="stack">
  <section class="panel"><div class="panel-head"><div><h3>Techniciens</h3><div class="panel-sub">Affectables sur chaque dossier</div></div></div><div class="pad">${s.technicians.map(t=>`<div class="row"><input value="${esc(t.name)}" onchange="renameTech('${t.id}',this.value)" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;flex:1;background:#fafbf7"><button class="icon-btn" title="Retirer" onclick="delTech('${t.id}')">×</button></div>`).join('')}<div class="inline-in"><input id="newTech" placeholder="Nom du technicien" onkeydown="if(event.key==='Enter'){addTech();event.preventDefault()}"><button class="secondary" onclick="addTech()">Ajouter</button></div></div></section>
- <section class="panel"><div class="panel-head"><div><h3>Données &amp; sauvegarde</h3><div class="panel-sub">Tout est stocké dans ce navigateur (${(JSON.stringify(db).length/1024).toFixed(0)} Ko)</div></div></div><div class="pad">
+ <section class="panel"><div class="panel-head"><div><h3>Données &amp; sauvegarde</h3><div class="panel-sub">Tout est stocké dans ce navigateur${SB.on?' (sauf les demandes clients, gardées en ligne)':''} (${(JSON.stringify(db).length/1024).toFixed(0)} Ko)</div></div></div><div class="pad">
   <div class="notice warn" style="margin:0 0 12px">Les données ne sont pas partagées entre ordinateurs. Exportez régulièrement une sauvegarde.</div>
   <div class="form-actions" style="justify-content:flex-start;margin:0"><button class="primary" onclick="exportJSON()">⇩ Sauvegarde complète (.json)</button><label class="secondary" style="cursor:pointer">⇧ Restaurer une sauvegarde<input type="file" accept="application/json,.json" style="display:none" onchange="importJSON(this)"></label><button class="secondary" onclick="exportCSV()">⇩ Réparations (.csv)</button></div>
   <div class="form-actions" style="justify-content:flex-start"><button class="danger" onclick="wipeAll()">Tout effacer</button></div></div></section></div></div>`;
@@ -749,6 +767,227 @@ function gsearch(v){
  box.innerHTML=G.join('')||'<div class="gh">Aucun résultat</div>';box.classList.add('open');
 }
 document.addEventListener('click',e=>{if(!e.target.closest('.gsearch'))$('#gres').classList.remove('open')});
+/* ============ Espace client : demandes reçues (Supabase) ============ */
+/* Les demandes envoyées depuis /client/ arrivent dans une base partagée.
+   Les dossiers, clients, devis et factures restent dans CE navigateur (inchangé). */
+const SB={url:'https://hwwjwifqkpguwqzmktaa.supabase.co',key:'sb_publishable_JIYngpjIUBWzYZJzJKmlQQ_-CT7VWjV',client:'https://atelier.hmaigservices.fr/client/',poll:60000};
+SB.on=!!(SB.url&&SB.key);
+const QR_SVG='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMyAzMyIgc2hhcGUtcmVuZGVyaW5nPSJjcmlzcEVkZ2VzIj48cGF0aCBmaWxsPSIjMTUxODFhIiBkPSJNMiAyaDd2MWgtN3pNMTIgMmgxdjFoLTF6TTE0IDJoMXYxaC0xek0xOCAyaDF2MWgtMXpNMjAgMmgzdjFoLTN6TTI0IDJoN3YxaC03ek0yIDNoMXYxaC0xek04IDNoMXYxaC0xek0xMCAzaDF2MWgtMXpNMTIgM2gxdjFoLTF6TTE2IDNoM3YxaC0zek0yMiAzaDF2MWgtMXpNMjQgM2gxdjFoLTF6TTMwIDNoMXYxaC0xek0yIDRoMXYxaC0xek00IDRoM3YxaC0zek04IDRoMXYxaC0xek0xNCA0aDF2MWgtMXpNMTYgNGgydjFoLTJ6TTIxIDRoMXYxaC0xek0yNCA0aDF2MWgtMXpNMjYgNGgzdjFoLTN6TTMwIDRoMXYxaC0xek0yIDVoMXYxaC0xek00IDVoM3YxaC0zek04IDVoMXYxaC0xek0xMCA1aDN2MWgtM3pNMTQgNWgzdjFoLTN6TTE5IDVoMXYxaC0xek0yMiA1aDF2MWgtMXpNMjQgNWgxdjFoLTF6TTI2IDVoM3YxaC0zek0zMCA1aDF2MWgtMXpNMiA2aDF2MWgtMXpNNCA2aDN2MWgtM3pNOCA2aDF2MWgtMXpNMTEgNmgxdjFoLTF6TTE1IDZoMXYxaC0xek0xOCA2aDF2MWgtMXpNMjEgNmgydjFoLTJ6TTI0IDZoMXYxaC0xek0yNiA2aDN2MWgtM3pNMzAgNmgxdjFoLTF6TTIgN2gxdjFoLTF6TTggN2gxdjFoLTF6TTEwIDdoMnYxaC0yek0xMyA3aDV2MWgtNXpNMTkgN2gydjFoLTJ6TTIyIDdoMXYxaC0xek0yNCA3aDF2MWgtMXpNMzAgN2gxdjFoLTF6TTIgOGg3djFoLTd6TTEwIDhoMXYxaC0xek0xMiA4aDF2MWgtMXpNMTQgOGgxdjFoLTF6TTE2IDhoMXYxaC0xek0xOCA4aDF2MWgtMXpNMjAgOGgxdjFoLTF6TTIyIDhoMXYxaC0xek0yNCA4aDd2MWgtN3pNMTEgOWgzdjFoLTN6TTE3IDloMnYxaC0yek0yMCA5aDN2MWgtM3pNMiAxMGg1djFoLTV6TTggMTBoNHYxaC00ek0xMyAxMGgxdjFoLTF6TTE1IDEwaDJ2MWgtMnpNMTkgMTBoMXYxaC0xek0yMyAxMGgxdjFoLTF6TTI1IDEwaDF2MWgtMXpNMjcgMTBoMXYxaC0xek0yOSAxMGgxdjFoLTF6TTIgMTFoMnYxaC0yek02IDExaDJ2MWgtMnpNOSAxMWgxdjFoLTF6TTEyIDExaDF2MWgtMXpNMTQgMTFoMXYxaC0xek0xNiAxMWgxdjFoLTF6TTE4IDExaDF2MWgtMXpNMjEgMTFoNnYxaC02ek0zMCAxMWgxdjFoLTF6TTQgMTJoMXYxaC0xek02IDEyaDN2MWgtM3pNMTIgMTJoMXYxaC0xek0xNiAxMmg0djFoLTR6TTIyIDEyaDN2MWgtM3pNMjYgMTJoMXYxaC0xek0zIDEzaDF2MWgtMXpNNyAxM2gxdjFoLTF6TTEwIDEzaDF2MWgtMXpNMTQgMTNoMXYxaC0xek0yMCAxM2gxdjFoLTF6TTI1IDEzaDF2MWgtMXpNMjcgMTNoMXYxaC0xek0yOSAxM2gxdjFoLTF6TTYgMTRoM3YxaC0zek0xMSAxNGgydjFoLTJ6TTE0IDE0aDJ2MWgtMnpNMTcgMTRoMXYxaC0xek0xOSAxNGgxdjFoLTF6TTIxIDE0aDF2MWgtMXpNMjcgMTRoMnYxaC0yek0zIDE1aDJ2MWgtMnpNNiAxNWgxdjFoLTF6TTkgMTVoMnYxaC0yek0xNSAxNWgxdjFoLTF6TTE4IDE1aDl2MWgtOXpNMzAgMTVoMXYxaC0xek00IDE2aDF2MWgtMXpNNyAxNmgydjFoLTJ6TTEyIDE2aDd2MWgtN3pNMjAgMTZoMXYxaC0xek0yMiAxNmgxdjFoLTF6TTI1IDE2aDR2MWgtNHpNMiAxN2gydjFoLTJ6TTcgMTdoMXYxaC0xek05IDE3aDN2MWgtM3pNMTMgMTdoMXYxaC0xek0xNiAxN2gxdjFoLTF6TTE4IDE3aDF2MWgtMXpNMjUgMTdoMnYxaC0yek0yOSAxN2gxdjFoLTF6TTIgMThoMXYxaC0xek00IDE4aDJ2MWgtMnpNOCAxOGgzdjFoLTN6TTEzIDE4aDF2MWgtMXpNMTkgMThoMXYxaC0xek0yNyAxOGgydjFoLTJ6TTIgMTloM3YxaC0zek03IDE5aDF2MWgtMXpNMTQgMTloMnYxaC0yek0yMCAxOWgzdjFoLTN6TTI0IDE5aDN2MWgtM3pNMjggMTloMXYxaC0xek0zMCAxOWgxdjFoLTF6TTIgMjBoMXYxaC0xek00IDIwaDJ2MWgtMnpNOCAyMGg1djFoLTV6TTE1IDIwaDN2MWgtM3pNMTkgMjBoMnYxaC0yek0yMiAyMGgydjFoLTJ6TTI2IDIwaDF2MWgtMXpNMjggMjBoMXYxaC0xek0yIDIxaDF2MWgtMXpNOSAyMWgxdjFoLTF6TTExIDIxaDF2MWgtMXpNMTQgMjFoMnYxaC0yek0yMiAyMWg1djFoLTV6TTI5IDIxaDF2MWgtMXpNMiAyMmgydjFoLTJ6TTYgMjJoNHYxaC00ek0xMiAyMmgxdjFoLTF6TTE0IDIyaDF2MWgtMXpNMTYgMjJoNHYxaC00ek0yMSAyMmg2djFoLTZ6TTI4IDIyaDN2MWgtM3pNMTAgMjNoMXYxaC0xek0xMiAyM2gxdjFoLTF6TTE4IDIzaDF2MWgtMXpNMjAgMjNoMXYxaC0xek0yMiAyM2gxdjFoLTF6TTI2IDIzaDV2MWgtNXpNMiAyNGg3djFoLTd6TTEwIDI0aDJ2MWgtMnpNMTMgMjRoMnYxaC0yek0xNyAyNGgxdjFoLTF6TTIxIDI0aDJ2MWgtMnpNMjQgMjRoMXYxaC0xek0yNiAyNGgzdjFoLTN6TTIgMjVoMXYxaC0xek04IDI1aDF2MWgtMXpNMTEgMjVoM3YxaC0zek0xNiAyNWgxdjFoLTF6TTE4IDI1aDF2MWgtMXpNMjEgMjVoMnYxaC0yek0yNiAyNWgxdjFoLTF6TTI5IDI1aDF2MWgtMXpNMiAyNmgxdjFoLTF6TTQgMjZoM3YxaC0zek04IDI2aDF2MWgtMXpNMTAgMjZoMnYxaC0yek0xMyAyNmgxdjFoLTF6TTE3IDI2aDF2MWgtMXpNMTkgMjZoMXYxaC0xek0yMiAyNmg1djFoLTV6TTI4IDI2aDN2MWgtM3pNMiAyN2gxdjFoLTF6TTQgMjdoM3YxaC0zek04IDI3aDF2MWgtMXpNMTAgMjdoMnYxaC0yek0xNCAyN2gzdjFoLTN6TTE4IDI3aDF2MWgtMXpNMjMgMjdoMXYxaC0xek0yNSAyN2gxdjFoLTF6TTI3IDI3aDR2MWgtNHpNMiAyOGgxdjFoLTF6TTQgMjhoM3YxaC0zek04IDI4aDF2MWgtMXpNMTAgMjhoM3YxaC0zek0xNSAyOGgzdjFoLTN6TTE5IDI4aDJ2MWgtMnpNMjIgMjhoOHYxaC04ek0yIDI5aDF2MWgtMXpNOCAyOWgxdjFoLTF6TTEwIDI5aDJ2MWgtMnpNMTQgMjloMnYxaC0yek0xOCAyOWgxdjFoLTF6TTIyIDI5aDF2MWgtMXpNMjQgMjloNHYxaC00ek0yOSAyOWgxdjFoLTF6TTIgMzBoN3YxaC03ek0xMCAzMGgzdjFoLTN6TTE0IDMwaDF2MWgtMXpNMTYgMzBoMXYxaC0xek0xOSAzMGgzdjFoLTN6TTIzIDMwaDJ2MWgtMnpNMjYgMzBoMXYxaC0xek0yOCAzMGgxdjFoLTF6Ii8+PC9zdmc+';
+const SBK='hmaig_sb_session';
+let sbSess=null;try{sbSess=JSON.parse(localStorage.getItem(SBK)||'null')}catch(e){}
+const INBOX={list:[],loaded:false,loading:false,err:'',new:0,filter:'new'};
+const DSTAT={nouvelle:['Nouvelle','orange'],vue:['Vue','blue'],convertie:['Dossier créé','green'],refusee:['Sans suite','grey']};
+const PUBL={recue:'Demande reçue',deposee:'Dossier ouvert',diagnostic:'Diagnostic en cours',devis:'Devis envoyé',validee:'Devis accepté',piece:"En attente d'une pièce",reparation:'Réparation en cours',controle:'Contrôle final',prete:'Prêt à récupérer',terminee:'Terminé',refusee:'Dossier clôturé'};
+const PUB_REP={recu:'deposee',diag:'diagnostic',devis:'devis',valide:'validee',piece:'piece',repar:'reparation',controle:'controle',pret:'prete',clos:'terminee',refuse:'refusee'};
+const PUB_SAV={'Reçu':'deposee','En analyse':'diagnostic','En réparation':'reparation','Échange en cours':'reparation','Prêt à retourner':'prete','Retourné au magasin':'terminee','Clôturé':'terminee'};
+
+/* ---------- Accès à la base ---------- */
+function sbStore(s){sbSess=s;try{s?localStorage.setItem(SBK,JSON.stringify(s)):localStorage.removeItem(SBK)}catch(e){}}
+function sbFromToken(d){return{access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Math.floor(Date.now()/1000)+(d.expires_in||3600),email:(d.user&&d.user.email)||''}}
+async function sbRefresh(){
+ if(!sbSess||!sbSess.refresh_token)return false;
+ try{
+  const r=await fetch(SB.url+'/auth/v1/token?grant_type=refresh_token',{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:sbSess.refresh_token})});
+  if(!r.ok){sbStore(null);return false}
+  const d=await r.json();d.user=d.user||{email:sbSess.email};sbStore(sbFromToken(d));return true;
+ }catch(e){return false}
+}
+async function sbReq(method,path,body,opt){
+ opt=opt||{};
+ const run=async tok=>{
+  const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),15000);
+  try{return await fetch(SB.url+path,{method,signal:ctl.signal,headers:Object.assign({apikey:SB.key,Authorization:'Bearer '+(tok||SB.key),'Content-Type':'application/json'},opt.headers||{}),body:body===undefined?undefined:JSON.stringify(body)})}
+  finally{clearTimeout(to)}
+ };
+ let r=await run(sbSess&&sbSess.access_token);
+ if(r.status===401&&sbSess&&await sbRefresh())r=await run(sbSess.access_token);
+ return r;
+}
+async function inboxLogin(e){
+ e.preventDefault();
+ const em=$('#sb_email').value.trim(),pw=$('#sb_pass').value,err=$('#sb_err'),b=$('#sb_btn');
+ err.textContent='';b.disabled=true;b.textContent='Connexion…';
+ try{
+  const r=await fetch(SB.url+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({email:em,password:pw})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){err.textContent=(r.status===400||r.status===401)?'E-mail ou mot de passe incorrect.':'Connexion impossible pour le moment.';b.disabled=false;b.textContent='Se connecter';return}
+  d.user=d.user||{email:em};sbStore(sbFromToken(d));
+  await inboxLoad();pubFlush();render();toast('Connecté à la boîte de demandes');
+ }catch(x){err.textContent='Connexion impossible : vérifiez votre accès internet.';b.disabled=false;b.textContent='Se connecter'}
+}
+async function inboxLogout(){
+ try{if(sbSess)await fetch(SB.url+'/auth/v1/logout',{method:'POST',headers:{apikey:SB.key,Authorization:'Bearer '+sbSess.access_token}})}catch(e){}
+ sbStore(null);INBOX.list=[];INBOX.loaded=false;INBOX.err='';inboxCount();render();
+}
+async function inboxLoad(){
+ if(!SB.on||!sbSess)return;
+ INBOX.loading=true;
+ try{
+  const r=await sbReq('GET','/rest/v1/demandes?select=*&order=created_at.desc&limit=500');
+  if(r.status===401){INBOX.err=sbSess?'':'Session expirée : reconnectez-vous.'}
+  else if(!r.ok)INBOX.err='Lecture impossible (code '+r.status+').';
+  else{INBOX.list=await r.json();INBOX.loaded=true;INBOX.err=''}
+ }catch(e){INBOX.err='Pas de connexion : dernière liste connue affichée.'}
+ INBOX.loading=false;inboxCount();
+}
+function inboxCount(){
+ INBOX.new=INBOX.list.filter(d=>d.status==='nouvelle').length;
+ document.title=(INBOX.new?'('+INBOX.new+') ':'')+'HMAIG Services · Atelier';
+}
+function inboxRefresh(){inboxLoad().then(()=>{render();if(!INBOX.err)toast('Liste actualisée')})}
+function inboxTick(){
+ if(!SB.on||!sbSess||document.hidden)return;
+ inboxLoad().then(()=>{
+  const busy=$('#modalBack').classList.contains('open')||/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement||{}).tagName||'');
+  if(!busy)render();
+ });
+}
+async function inboxPatch(id,f,quiet){
+ const d=INBOX.list.find(x=>x.id===id);if(d)Object.assign(d,f);inboxCount();
+ try{
+  const r=await sbReq('PATCH','/rest/v1/demandes?id=eq.'+encodeURIComponent(id),f,{headers:{Prefer:'return=minimal'}});
+  if(!r.ok){if(!quiet)toast('Modification non enregistrée (code '+r.status+')');return false}
+  return true;
+ }catch(e){if(!quiet)toast('Pas de connexion : modification non enregistrée');return false}
+}
+
+/* ---------- Statut visible par le client (suivi) ---------- */
+async function pubSync(o,type){
+ if(!SB.on||!o||!o.demandeId)return;
+ const pub=(type==='sav'?PUB_SAV:PUB_REP)[o.status];if(!pub)return;
+ if(!sbSess){o.pubDirty=true;save();return}
+ const ok=await inboxPatch(o.demandeId,{public_status:pub},true);
+ if(ok){if(o.pubDirty){delete o.pubDirty;save()}}
+ else{o.pubDirty=true;save();toast('Statut non transmis au suivi client : il sera renvoyé à la prochaine connexion')}
+}
+function pubFlush(){
+ db.repairs.filter(r=>r.demandeId&&r.pubDirty).forEach(r=>pubSync(r,'rep'));
+ db.sav.filter(s=>s.demandeId&&s.pubDirty).forEach(s=>pubSync(s,'sav'));
+}
+
+/* ---------- Vue « Demandes clients » ---------- */
+const copyText=async t=>{
+ try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(_){}a.remove()}
+ toast('Copié');
+};
+const dWhen=s=>{const d=new Date(s);return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}).replace('.','')+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})};
+function vInbox(){return (sbSess?inboxPanel():loginPanel())+linkPanel()}
+function loginPanel(){
+ return `<section class="panel"><div class="panel-head"><div><h3>Connexion à la boîte de demandes</h3><div class="panel-sub">Les demandes envoyées par vos clients arrivent ici. Seul le compte de l'atelier peut les lire.</div></div></div>
+ <div class="pad"><form onsubmit="inboxLogin(event)" style="max-width:420px"><div class="form-grid" style="grid-template-columns:1fr">
+ <div class="field"><label>E-mail du compte atelier</label><input id="sb_email" type="email" required autocomplete="username"></div>
+ <div class="field"><label>Mot de passe</label><input id="sb_pass" type="password" required autocomplete="current-password"></div></div>
+ <div id="sb_err" role="alert" style="color:var(--red);font-size:13px;margin:10px 0 0;min-height:18px"></div>
+ <div class="form-actions" style="justify-content:flex-start"><button class="primary" id="sb_btn" type="submit">Se connecter</button></div></form>
+ ${INBOX.err?`<div class="notice" style="margin-top:12px">${esc(INBOX.err)}</div>`:''}</div></section>`;
+}
+function inboxRows(){
+ const f=INBOX.filter,L=INBOX.list.filter(d=>f==='all'||(f==='open'?['nouvelle','vue'].includes(d.status):d.status==='nouvelle'));
+ return L.map(d=>{const sav=d.kind==='sav',st=DSTAT[d.status]||['?','grey'];
+  return `<tr class="click" onclick="openDemande('${esc(d.id)}')"><td class="nw date">${esc(dWhen(d.created_at))}</td><td><div class="client">${esc(sav?d.store:d.name)}</div><div class="device">${sav?'Magasin · contact '+esc(d.name):'Particulier'} · ${esc(d.phone)}</div></td><td><div class="client">${esc(d.model)}</div><div class="device">${esc(String(d.issue).slice(0,90))}${String(d.issue).length>90?'…':''}</div></td><td><span class="tag ${st[1]}">${st[0]}</span></td></tr>`}).join('');
+}
+function inboxPanel(){
+ const L=INBOX.list,f=INBOX.filter,n=INBOX.new;
+ const cOpen=L.filter(d=>['nouvelle','vue'].includes(d.status)).length;
+ const rows=inboxRows();
+ return `<section class="panel"><div class="panel-head"><div><h3>${n} nouvelle${n>1?'s':''} demande${n>1?'s':''}</h3><div class="panel-sub">${INBOX.loading?'Actualisation…':'Connecté : '+esc(sbSess.email)}${INBOX.err?' · <b style="color:var(--red)">'+esc(INBOX.err)+'</b>':''}</div></div>
+ <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="secondary small" onclick="inboxRefresh()">↻ Actualiser</button><button class="secondary small" onclick="inboxLogout()">Se déconnecter</button></div></div>
+ <div class="filters"><select onchange="INBOX.filter=this.value;render()" aria-label="Filtrer les demandes">${opt('new','Nouvelles ('+n+')',f)}${opt('open','À traiter ('+cOpen+')',f)}${opt('all','Toutes ('+L.length+')',f)}</select></div>
+ <div class="table-wrap"><table class="table"><thead><tr><th>Reçue</th><th>Demandeur</th><th>Appareil et panne</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table>${rows?'':'<div class="empty" style="display:block">'+(INBOX.loaded?'Aucune demande dans cette liste.':'Chargement…')+'</div>'}</div></section>`;
+}
+function linkPanel(){
+ const u=esc(SB.client);
+ return `<section class="panel" style="margin-top:18px"><div class="panel-head"><div><h3>Votre espace client</h3><div class="panel-sub">Vos clients et vos magasins partenaires y envoient leurs demandes et suivent leur réparation avec un code, sans créer de compte.</div></div></div>
+ <div class="pad"><div class="qrline"><div><div class="field"><label>Lien à donner (SMS, e-mail, carte de visite)</label><div class="inline-in" style="margin-top:0"><input readonly value="${u}" onfocus="this.select()" aria-label="Lien de l'espace client"><button class="secondary" onclick="copyText('${u}')">Copier</button></div></div>
+ <div class="qrbtns"><a class="secondary small" href="${u}" target="_blank" rel="noopener">Voir ce que voient vos clients ↗</a><button class="secondary small" onclick="printPoster()">🖶 Imprimer l'affichette QR</button></div></div>
+ <img class="qrimg" src="${QR_SVG}" alt="QR code vers l'espace client"></div></div></section>`;
+}
+function printPoster(){
+ const s=db.settings;
+ printHTML(`<div class="poster"><img class="plogo" src="${LOGO_MARK}" alt=""><h1>Votre appareil est en panne ?</h1><p class="pl">Smartphones · PC portables · consoles</p><img class="pqr" src="${QR_SVG}" alt="QR code"><p class="pc">Scannez pour envoyer votre demande,<br>puis suivez votre réparation en ligne.</p><p class="pu">${esc(SB.client.replace(/^https?:\/\//,''))}</p><p class="ps">${esc(s.company)} · 20 ans d'expérience${s.phone?' · '+esc(s.phone):''}</p></div>`);
+}
+
+/* ---------- Fiche d'une demande ---------- */
+function openDemande(id,back){
+ const d=INBOX.list.find(x=>x.id===id);if(!d)return;
+ if(d.status==='nouvelle')inboxPatch(id,{status:'vue'},true);
+ modal(()=>demandeHTML(id),back);
+}
+function demandeHTML(id){
+ const d=INBOX.list.find(x=>x.id===id);if(!d)return mh('','Demande introuvable');
+ const sav=d.kind==='sav',st=DSTAT[d.status]||['?','grey'],rep=db.repairs.find(r=>r.demandeId===id),sv=db.sav.find(s=>s.demandeId===id);
+ const tel=String(d.phone).replace(/[^\d+]/g,''),back=`()=>openDemande('${id}')`;
+ const line=(l,v)=>v?`<div class="field"><label>${l}</label><div>${v}</div></div>`:'';
+ const act=rep?`<button class="primary small" onclick="openRepair('${rep.id}',${back})">Ouvrir ${esc(rep.ref)}</button>`
+  :sv?`<button class="primary small" onclick="openSav('${sv.id}',${back})">Ouvrir ${esc(sv.ref)}</button>`
+  :`<button class="primary small" onclick="${sav?'demandeToSav':'demandeToRepair'}('${id}')">${sav?'Créer la demande SAV':'Créer le dossier de réparation'}</button>`;
+ return `${mh((sav?'Demande SAV magasin':'Demande client')+' · '+d.code,(sav?d.store:d.name)+' — '+d.model)}
+ <div class="status-bar"><span class="tag ${st[1]}">${st[0]}</span>${act}<a class="secondary small" style="text-decoration:none" href="tel:${esc(tel)}">☎ Appeler</a>${d.email?`<a class="secondary small" style="text-decoration:none" href="mailto:${esc(d.email)}?subject=${encodeURIComponent('Votre demande '+d.code+' — '+db.settings.company)}">✉ E-mail</a>`:''}</div>
+ <div class="form-grid">
+  ${line(sav?'Magasin':'Nom',esc(sav?d.store:d.name))}${sav?line('Contact',esc(d.name)):''}
+  ${line('Téléphone',esc(d.phone))}${line('E-mail',esc(d.email||''))}
+  ${line('Appareil',esc((d.device_type?d.device_type+' · ':'')+d.model))}${line('N° de série / IMEI',esc(d.serial||''))}
+  ${sav&&d.sale_date?line('Date de vente',fmtDL(d.sale_date)):''}${line('Reçue le',esc(new Date(d.created_at).toLocaleString('fr-FR',{dateStyle:'long',timeStyle:'short'})))}
+  <div class="field full"><label>Panne décrite</label><div style="white-space:pre-wrap">${esc(d.issue)}</div></div>
+ </div>
+ <div class="sec"><h4>Suivi visible par le client</h4>
+  <div class="muted" style="margin-bottom:8px">Statut affiché : <b>${esc(PUBL[d.public_status]||d.public_status)}</b>. Il suit tout seul l'avancement du dossier. Le message ci-dessous (500 caractères) s'affiche sur la page de suivi.</div>
+  <div class="field"><textarea id="dm_msg" maxlength="500" placeholder="ex. Votre téléphone est bien arrivé, le diagnostic sera fait demain.">${esc(d.public_message||'')}</textarea></div>
+  <div class="inline-in"><button class="secondary" onclick="saveDemandeField('${id}','public_message','dm_msg')">Enregistrer le message</button></div></div>
+ <div class="sec"><h4>Note interne</h4><div class="field"><textarea id="dm_note" maxlength="2000" placeholder="Visible par vous seul">${esc(d.owner_note||'')}</textarea></div>
+  <div class="inline-in"><button class="secondary" onclick="saveDemandeField('${id}','owner_note','dm_note')">Enregistrer la note</button></div></div>
+ <div class="form-actions"><button class="danger" style="margin-right:auto" onclick="delDemande('${id}')">Supprimer</button>${d.status!=='refusee'&&!rep&&!sv?`<button class="secondary" onclick="refuseDemande('${id}')">Classer sans suite</button>`:''}<button class="primary" onclick="closeModal()">Fermer</button></div>`;
+}
+async function saveDemandeField(id,field,inputId){
+ const v=$('#'+inputId).value.trim();
+ if(await inboxPatch(id,{[field]:v||null}))toast('Enregistré');
+}
+async function refuseDemande(id){
+ if(!confirm('Classer cette demande sans suite ?\n\nLe client verra « Dossier clôturé » sur sa page de suivi.'))return;
+ await inboxPatch(id,{status:'refusee',public_status:'refusee'});refreshModal();
+}
+async function delDemande(id){
+ if(!confirm('Supprimer définitivement cette demande ?\n\nLe client ne pourra plus suivre son dossier avec son code.'))return;
+ try{
+  const r=await sbReq('DELETE','/rest/v1/demandes?id=eq.'+encodeURIComponent(id),undefined,{headers:{Prefer:'return=minimal'}});
+  if(!r.ok){toast('Suppression impossible (code '+r.status+')');return}
+ }catch(e){toast('Pas de connexion : suppression impossible');return}
+ INBOX.list=INBOX.list.filter(x=>x.id!==id);inboxCount();closeModal();toast('Demande supprimée');
+}
+
+/* ---------- Conversion en dossier ---------- */
+function demandeToRepair(id){
+ const d=INBOX.list.find(x=>x.id===id);if(!d)return;
+ const digits=s=>String(s||'').replace(/\D/g,'');
+ let c=db.clients.find(x=>x.name.toLowerCase()===d.name.toLowerCase()&&(!x.phone||digits(x.phone)===digits(d.phone)));
+ if(!c){c={id:uid(),kind:'particulier',name:d.name,phone:d.phone,email:d.email||'',address:'',notes:'Créé depuis la demande en ligne '+d.code};db.clients.push(c)}
+ else{if(!c.phone)c.phone=d.phone;if(!c.email&&d.email)c.email=d.email}
+ const serial=d.serial||'';
+ let dv0=db.devices.find(x=>x.clientId===c.id&&(serial?x.serial.toLowerCase()===serial.toLowerCase():x.model.toLowerCase()===d.model.toLowerCase()));
+ if(!dv0){dv0={id:uid(),clientId:c.id,type:DTYPES.includes(d.device_type)?d.device_type:'Autre',model:d.model,serial,notes:''};db.devices.push(dv0)}
+ const r=mkRepair(db,{clientId:c.id,deviceId:dv0.id,issue:d.issue,demandeId:d.id,demandeCode:d.code,history:[{d:today(),t:'Dossier créé depuis la demande en ligne '+d.code}]});
+ db.repairs.unshift(r);save();
+ inboxPatch(d.id,{status:'convertie',repair_ref:r.ref,public_status:'deposee'},true).then(ok=>{if(!ok){r.pubDirty=true;save();toast('Dossier créé, mais le suivi client sera mis à jour à la prochaine connexion')}});
+ toast('Dossier '+r.ref+' créé depuis la demande');openRepair(r.id,()=>openDemande(id));
+}
+function demandeToSav(id){
+ const d=INBOX.list.find(x=>x.id===id);if(!d)return;
+ let c=db.clients.find(x=>x.name.toLowerCase()===String(d.store).toLowerCase());
+ if(!c){c={id:uid(),kind:'magasin',name:d.store,phone:d.phone,email:d.email||'',address:'',notes:'Contact : '+d.name+' (demande en ligne '+d.code+')'};db.clients.push(c)}
+ else{if(!c.phone)c.phone=d.phone;if(!c.email&&d.email)c.email=d.email}
+ const s={id:uid(),ref:nextNum(db,'SAV'),storeId:c.id,received:today(),device:d.model,serial:d.serial||'',issue:d.issue,saleDate:d.sale_date||'',warrantyMonths:12,decision:'À qualifier',status:'Reçu',exchangeNote:'',repairId:'',demandeId:d.id,demandeCode:d.code,history:[{d:today(),t:'Demande créée depuis la demande en ligne '+d.code+' (contact : '+d.name+')'}]};
+ db.sav.unshift(s);save();
+ inboxPatch(d.id,{status:'convertie',repair_ref:s.ref,public_status:'deposee'},true).then(ok=>{if(!ok){s.pubDirty=true;save();toast('SAV créé, mais le suivi client sera mis à jour à la prochaine connexion')}});
+ toast('SAV '+s.ref+' créé depuis la demande');openSav(s.id,()=>openDemande(id));
+}
+
+/* ---------- Démarrage de la synchronisation ---------- */
+if(SB.on){
+ $('#sideNote').innerHTML="<strong>Espace privé</strong>Dossiers, clients et factures restent dans ce navigateur. Seules les demandes de vos clients passent par une base en ligne protégée.";
+ setInterval(inboxTick,SB.poll);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)inboxTick()});
+ if(sbSess)inboxLoad().then(()=>{pubFlush();render()});
+}
 /* ============ Infrastructure des fenêtres ============ */
 let modalFn=null,modalBack=null,curMsg=null;
 function modal(fn,back,narrow){modalFn=fn;modalBack=back||null;const m=$('#modal');m.className='modal'+(narrow?' narrow':'');m.innerHTML=fn();m.scrollTop=0;$('#modalBack').classList.add('open')}
@@ -847,7 +1086,7 @@ function setStatus(id,k,silent){
  r.status=k;r.statusSince=today();log(r,'Statut → '+stL(k));
  if((k==='pret'||k==='clos')&&!r.doneAt)r.doneAt=today();
  if(k==='clos'&&!r.returnDate){r.returnDate=today();log(r,'Restitution enregistrée — garantie '+db.settings.warrantyMonths+" mois jusqu'au "+fmtDL(warrEnd(r)))}
- save();refreshModal();
+ save();refreshModal();pubSync(r,'rep');
  if(!silent){
   if(k==='pret')toast('Prêt — pensez à prévenir le client (Notifications)');
   if(k==='clos')toast("Dossier clôturé · garantie jusqu'au "+fmtDL(warrEnd(r))+(r.payment!=='Réglé'?' · attention : paiement non soldé':''));
@@ -1020,7 +1259,7 @@ function savHTML(id){
   <div class="inline-in"><input id="noteIn" placeholder="Ajouter une note (échange avec le magasin, décision…)" onkeydown="if(event.key==='Enter'){addNote('sav','${id}');event.preventDefault()}"><button class="secondary" onclick="addNote('sav','${id}')">Ajouter</button></div></div>
  <div class="form-actions"><button class="danger" style="margin-right:auto" onclick="delSav('${id}')">Supprimer</button><button class="primary" onclick="closeModal()">Fermer</button></div>`;
 }
-function setSavStatus(id,v){const s=db.sav.find(x=>x.id===id);if(s.status===v)return;s.status=v;log(s,'Statut → '+v);save();refreshModal();if(v==='Prêt à retourner')toast('Pensez à prévenir le magasin (Notifications)')}
+function setSavStatus(id,v){const s=db.sav.find(x=>x.id===id);if(s.status===v)return;s.status=v;log(s,'Statut → '+v);save();refreshModal();pubSync(s,'sav');if(v==='Prêt à retourner')toast('Pensez à prévenir le magasin (Notifications)')}
 function notifySav(id){const s=db.sav.find(x=>x.id===id);openMsg(s.status==='Prêt à retourner'?'savpret':'sav',null,id,()=>openSav(id))}
 function createRepairFromSav(id){
  const s=db.sav.find(x=>x.id===id);
