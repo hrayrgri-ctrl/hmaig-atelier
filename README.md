@@ -8,3 +8,12 @@ Outil de gestion de l'atelier (réparations, SAV magasins, devis et factures, st
 - `.github/workflows/keepalive.yml` — évite la mise en pause de la base gratuite
 
 Aucun secret dans ce dépôt : la clé publique Supabase est faite pour être visible, la sécurité est assurée par les règles de la base.
+
+## Verrou administrateur
+
+Les actions sensibles demandent le mot de passe du compte `hmaigservices@gmail.com` : suppression d'un client, d'un appareil hors garantie, d'un dossier, d'un devis, d'une facture ou d'une demande en ligne ; création, modification ou suppression de stock ; paramètres de la société et techniciens ; effacement ou restauration des données.
+
+- Le compte est créé une fois dans Supabase : *Authentication → Users → Add user → Create new user* (case « Auto Confirm User » cochée).
+- Le mot de passe est vérifié par Supabase Auth, puis la session de vérification est fermée aussitôt : rien n'est mémorisé, le mot de passe est redemandé à chaque action.
+- Ce compte n'a aucun droit sur la table des demandes (les règles de la base ne reconnaissent que le compte de l'atelier) : il sert uniquement à confirmer l'identité.
+- Sans base configurée (version hors ligne), le verrou est inactif.

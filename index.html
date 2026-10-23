@@ -271,7 +271,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--ink);box-shadow:0 0 0
 #printArea{display:none}
 @media print{
  body{background:#fff}
- .app,.modal-back,.toast{display:none!important}
+ .app,.modal-back,.toast,.adm-back{display:none!important}
  #printArea{display:block}
  #printArea .doc{border:0;padding:0}
  @page{margin:14mm}
@@ -331,6 +331,15 @@ a.secondary{text-decoration:none;display:inline-block}
  .topbar h2{font-size:27px}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.adm-back{position:fixed;inset:0;background:rgba(11,12,13,.7);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);z-index:40;padding:16px;display:flex;align-items:center;justify-content:center}
+.adm{width:min(420px,100%);background:var(--panel);border-radius:18px;padding:26px;box-shadow:0 30px 80px rgba(0,0,0,.45);animation:pop .16s ease-out}
+.adm-lock{width:44px;height:44px;border-radius:12px;background:var(--amber-t);color:var(--amber-x);display:grid;place-items:center;margin-bottom:12px}
+.adm-lock svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.adm h3{margin:0 0 6px;font:800 21px/1.15 var(--disp);letter-spacing:-.03em}
+.adm-what{margin:0 0 16px;color:#4a5358;font-size:14px;line-height:1.45}
+.adm input[readonly]{background:var(--soft);color:#4a5358}
+.adm-err{min-height:18px;margin-top:8px;color:var(--red-x);font-size:13px;font-weight:600}
+.adm .form-actions{margin-top:14px}
 </style>
 </head>
 <body>
@@ -735,7 +744,7 @@ function vSettings(){
  <div class="stack">
  <section class="panel"><div class="panel-head"><div><h3>Techniciens</h3><div class="panel-sub">Affectables sur chaque dossier</div></div></div><div class="pad">${s.technicians.map(t=>`<div class="row"><input value="${esc(t.name)}" onchange="renameTech('${t.id}',this.value)" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;flex:1;background:#fafbf7"><button class="icon-btn" title="Retirer" onclick="delTech('${t.id}')">×</button></div>`).join('')}<div class="inline-in"><input id="newTech" placeholder="Nom du technicien" onkeydown="if(event.key==='Enter'){addTech();event.preventDefault()}"><button class="secondary" onclick="addTech()">Ajouter</button></div></div></section>
  <section class="panel"><div class="panel-head"><div><h3>Données &amp; sauvegarde</h3><div class="panel-sub">Tout est stocké dans ce navigateur${SB.on?' (sauf les demandes clients, gardées en ligne)':''} (${(JSON.stringify(db).length/1024).toFixed(0)} Ko)</div></div></div><div class="pad">
-  <div class="notice warn" style="margin:0 0 12px">Les données ne sont pas partagées entre ordinateurs. Exportez régulièrement une sauvegarde.</div>
+  <div class="notice warn" style="margin:0 0 12px">Les données ne sont pas partagées entre ordinateurs. Exportez régulièrement une sauvegarde.</div>${SB.on&&ADMIN_MAIL?`<div class="notice" style="margin:0 0 12px">🔒 <b>Verrou administrateur</b> : le mot de passe du compte ${esc(ADMIN_MAIL)} est demandé pour supprimer (client, appareil hors garantie, dossier, devis, facture, demande), modifier le stock ou les paramètres, et restaurer ou effacer les données.</div>`:''}
   <div class="form-actions" style="justify-content:flex-start;margin:0"><button class="primary" onclick="exportJSON()">⇩ Sauvegarde complète (.json)</button><label class="secondary" style="cursor:pointer">⇧ Restaurer une sauvegarde<input type="file" accept="application/json,.json" style="display:none" onchange="importJSON(this)"></label><button class="secondary" onclick="exportCSV()">⇩ Réparations (.csv)</button></div>
   <div class="form-actions" style="justify-content:flex-start"><button class="danger" onclick="wipeAll()">Tout effacer</button></div></div></section></div></div>`;
 }
@@ -988,6 +997,126 @@ if(SB.on){
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)inboxTick()});
  if(sbSess)inboxLoad().then(()=>{pubFlush();render()});
 }
+/* ============ Verrou « compte admin » ============ */
+/* Les actions sensibles (suppressions, stock, paramètres) demandent le mot de passe du compte
+   administrateur. Le mot de passe est vérifié par Supabase Auth ; la session ouverte pour la
+   vérification est fermée aussitôt : rien n'est mémorisé, le mot de passe est redemandé à chaque action.
+   Ce compte n'a AUCUN droit sur la base des demandes : il ne sert qu'à confirmer l'identité.
+   Sans base configurée (version hors ligne), le verrou est inactif. */
+const ADMIN_MAIL='hmaigservices@gmail.com';
+const ADM={open:false,fails:0,lockUntil:0};
+const admOn=()=>!!(SB.on&&ADMIN_MAIL);
+
+async function admVerify(pw){
+ const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),15000);
+ try{
+  const r=await fetch(SB.url+'/auth/v1/token?grant_type=password',{method:'POST',signal:ctl.signal,headers:{apikey:SB.key,'Content-Type':'application/json'},body:JSON.stringify({email:ADMIN_MAIL,password:pw})});
+  const d=await r.json().catch(()=>({}));
+  if(r.ok&&d.access_token){
+   const ok=String((d.user&&d.user.email)||'').toLowerCase()===ADMIN_MAIL.toLowerCase();
+   /* on ferme tout de suite la session de vérification (elle n'est jamais conservée) */
+   fetch(SB.url+'/auth/v1/logout',{method:'POST',headers:{apikey:SB.key,Authorization:'Bearer '+d.access_token}}).catch(()=>{});
+   return ok?'ok':'bad';
+  }
+  if(r.status===400||r.status===401||r.status===422)return 'bad';
+  if(r.status===429)return 'rate';
+  return 'net';
+ }catch(e){return 'net'}
+ finally{clearTimeout(to)}
+}
+
+function admAsk(what){
+ return new Promise(resolve=>{
+  if(ADM.open){resolve(false);return}
+  ADM.open=true;
+  const prev=document.activeElement;
+  const back=document.createElement('div');back.className='adm-back';
+  back.innerHTML=`<form class="adm" role="dialog" aria-modal="true" aria-labelledby="admT" autocomplete="on">
+   <div class="adm-lock" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+   <h3 id="admT">Action réservée à l'administrateur</h3>
+   <p class="adm-what">${esc(what)}</p>
+   <div class="field"><label for="admUser">Compte administrateur</label><input id="admUser" type="email" value="${esc(ADMIN_MAIL)}" readonly autocomplete="username"></div>
+   <div class="field" style="margin-top:10px"><label for="admPw">Mot de passe administrateur</label><input id="admPw" type="password" required autocomplete="current-password"></div>
+   <div class="adm-err" id="admErr" role="alert"></div>
+   <div class="form-actions"><button type="button" class="secondary" id="admNo">Annuler</button><button class="primary" id="admOk" type="submit">Valider</button></div>
+  </form>`;
+  document.body.appendChild(back);
+  const f=back.querySelector('form'),pw=back.querySelector('#admPw'),err=back.querySelector('#admErr'),ok=back.querySelector('#admOk');
+  const done=v=>{document.removeEventListener('keydown',onKey,true);back.remove();ADM.open=false;try{prev&&prev.focus&&prev.focus()}catch(e){}resolve(v)};
+  const onKey=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(false)}};
+  document.addEventListener('keydown',onKey,true);
+  back.querySelector('#admNo').onclick=()=>done(false);
+  f.onsubmit=async e=>{
+   e.preventDefault();
+   const wait=ADM.lockUntil-Date.now();
+   if(wait>0){err.textContent='Trop d\'essais. Patientez '+Math.ceil(wait/1000)+' s.';return}
+   if(!pw.value)return;
+   err.textContent='';ok.disabled=true;ok.textContent='Vérification…';
+   const res=await admVerify(pw.value);
+   if(res==='ok'){ADM.fails=0;done(true);return}
+   ok.disabled=false;ok.textContent='Valider';
+   if(res==='bad'){
+    ADM.fails++;
+    if(ADM.fails>=5){ADM.fails=0;ADM.lockUntil=Date.now()+60000;err.textContent='Trop d\'essais. Patientez 60 s.'}
+    else err.textContent='Mot de passe incorrect.';
+    pw.value='';pw.focus();
+   }else if(res==='rate')err.textContent='Trop de tentatives : réessayez dans quelques minutes.';
+   else err.textContent='Connexion impossible : ce verrou demande internet.';
+  };
+  setTimeout(()=>pw.focus(),30);
+ });
+}
+
+/* Enveloppe une fonction existante : la fenêtre admin s'ouvre d'abord, l'action ne part qu'après validation.
+   need(...args) : renvoie false si l'action ne demande pas l'admin (ou sera de toute façon refusée).
+   deny(...args) : remet l'écran dans son état si l'admin est refusé (champ modifié, liste déroulante…). */
+function adminGuard(name,label,need,deny){
+ const orig=window[name];
+ if(typeof orig!=='function')throw new Error('adminGuard : fonction inconnue '+name);
+ window[name]=function(...a){
+  if(a[0]&&typeof a[0].preventDefault==='function')a[0].preventDefault();
+  if(!admOn()||(need&&!need(...a)))return orig.apply(this,a);
+  const what=typeof label==='function'?label(...a):label;
+  return admAsk(what).then(ok=>{
+   if(ok)return orig.apply(this,a);
+   if(deny)deny(...a);
+  });
+ };
+}
+
+/* Appareil encore sous garantie : réparation restituée dans la période de garantie, ou SAV sous garantie. */
+function devUnderWarranty(did){
+ const t=today(),d=dv(did);
+ if(db.repairs.some(r=>r.deviceId===did&&r.returnDate&&warrEnd(r)>=t))return true;
+ if(d&&d.serial&&db.sav.some(s=>s.storeId===d.clientId&&s.serial&&s.serial===d.serial&&savWarr(s).k==='sous'))return true;
+ return false;
+}
+
+(function(){
+ const redraw=()=>render();
+ const SETL={company:'le nom commercial',siret:'le SIRET',phone:'le téléphone',email:"l'e-mail",address:"l'adresse",tvaRate:'le taux de TVA',warrantyMonths:'la durée de garantie',tvaExempt:'le régime de TVA',legal:'les mentions légales',depositTerms:'les conditions du bon de dépôt'};
+ /* suppressions */
+ adminGuard('delClient',"Supprimer une fiche client",id=>!(db.repairs.some(r=>r.clientId===id)||db.sav.some(s=>s.storeId===id)||db.docs.some(d=>d.clientId===id)));
+ adminGuard('delDevice',"Supprimer un appareil hors garantie",(did)=>!devUnderWarranty(did));
+ adminGuard('delRepair',"Supprimer un dossier de réparation",id=>{const r=db.repairs.find(x=>x.id===id);return !(r&&repDocs(r).some(d=>d.kind==='facture'))});
+ adminGuard('delSav',"Supprimer une demande SAV");
+ adminGuard('delDoc',id=>{const D=db.docs.find(x=>x.id===id);return D&&D.kind==='facture'?'Supprimer une facture':'Supprimer un devis'});
+ adminGuard('delDemande',"Supprimer une demande client en ligne");
+ /* stock */
+ adminGuard('savePartForm',(e,id)=>id?'Modifier une pièce du stock':'Ajouter une pièce au stock');
+ adminGuard('delPart',"Supprimer une pièce du stock");
+ adminGuard('adjStock',(id,n)=>n>0?'Ajouter une pièce en stock':'Retirer une pièce du stock');
+ adminGuard('delOrder',"Supprimer une commande fournisseur");
+ adminGuard('setOrder',"Réceptionner une commande (met le stock à jour)",(id,s)=>{const o=db.orders.find(x=>x.id===id);return s==='Reçue'&&o&&!o.received},redraw);
+ /* paramètres et données */
+ adminGuard('setSet',(k)=>'Modifier '+(SETL[k]||'les paramètres'),null,redraw);
+ adminGuard('addTech',"Ajouter un technicien");
+ adminGuard('renameTech',"Renommer un technicien",null,redraw);
+ adminGuard('delTech',"Retirer un technicien");
+ adminGuard('wipeAll',"Effacer toutes les données");
+ adminGuard('clearDemo',"Vider la base de démonstration");
+ adminGuard('importJSON',"Restaurer une sauvegarde (remplace toutes les données)",null,inp=>{try{inp.value=''}catch(e){}});
+})();
 /* ============ Infrastructure des fenêtres ============ */
 let modalFn=null,modalBack=null,curMsg=null;
 function modal(fn,back,narrow){modalFn=fn;modalBack=back||null;const m=$('#modal');m.className='modal'+(narrow?' narrow':'');m.innerHTML=fn();m.scrollTop=0;$('#modalBack').classList.add('open')}
