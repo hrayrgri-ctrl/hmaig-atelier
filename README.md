@@ -9,6 +9,10 @@ Outil de gestion de l'atelier (réparations, SAV magasins, devis et factures, st
 
 Aucun secret dans ce dépôt : la clé publique Supabase est faite pour être visible, la sécurité est assurée par les règles de la base.
 
+## Import du stock (.csv)
+
+Dans l'onglet Stock, le bouton « Importer (.csv) » ajoute des pièces à partir d'un fichier. Colonnes reconnues : Référence ; Désignation ; Catégorie ; Quantité ; Seuil ; Achat HT ; Vente HT ; Fournisseur ; Emplacement (séparateur `;`, `,` ou tabulation ; prix avec virgule acceptés). Une référence déjà au stock n'est jamais modifiée ni dupliquée. L'import demande le mot de passe administrateur.
+
 ## Verrou administrateur
 
 Les actions sensibles demandent le mot de passe du compte `hmaigservices@gmail.com` : suppression d'un client, d'un appareil hors garantie, d'un dossier, d'un devis, d'une facture ou d'une demande en ligne ; création, modification ou suppression de stock ; paramètres de la société et techniciens ; effacement ou restauration des données.
