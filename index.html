@@ -1003,7 +1003,7 @@ if(SB.on){
    vérification est fermée aussitôt : rien n'est mémorisé, le mot de passe est redemandé à chaque action.
    Ce compte n'a AUCUN droit sur la base des demandes : il ne sert qu'à confirmer l'identité.
    Sans base configurée (version hors ligne), le verrou est inactif. */
-const ADMIN_MAIL='hmaigservices@gmail.com';
+const ADMIN_MAIL='';
 const ADM={open:false,fails:0,lockUntil:0};
 const admOn=()=>!!(SB.on&&ADMIN_MAIL);
 
@@ -1447,7 +1447,8 @@ function autoOrder(){
  save();toast(n?n+' commande'+(n>1?'s':'')+' créée'+(n>1?'s':'')+' (à passer chez le fournisseur)':'Aucune pièce sous le seuil sans commande en cours');render();
 }
 
-/* Import de pièces (.csv) : une ligne par pièce ; les références déjà au stock ne sont pas modifiées */
+/* Import de pièces (.csv) : une ligne par pièce. Une référence déjà au stock n'est jamais dupliquée ;
+   seuls ses prix (achat / vente) sont mis à jour si le fichier en donne ; quantité et autres champs ne bougent pas. */
 const nkey=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
 function parseCSV(txt){
  txt=txt.replace(/^﻿/,'');
@@ -1469,14 +1470,19 @@ function importPartsFromText(txt){
  Object.keys(PCOLS).forEach(k=>{const i=heads.findIndex(h=>PCOLS[k].includes(h));if(i>=0)col[k]=i});
  if(col.name===undefined)return{err:'Colonne « Désignation » introuvable (première ligne du fichier).'};
  const g=(r,k)=>col[k]===undefined?'':String(r[col[k]]||'').trim(),num=v=>{const n=parseFloat(String(v||'').replace(/\s/g,'').replace('€','').replace(',','.'));return isFinite(n)?n:0};
- let added=0,known=0,skipped=0;
+ let added=0,known=0,updated=0,skipped=0;
  rows.slice(1).forEach(r=>{
   const name=g(r,'name'),ref=g(r,'ref');if(!name){skipped++;return}
-  if(ref&&db.parts.some(p=>p.ref&&nkey(p.ref)===nkey(ref))){known++;return}
+  const ex=ref&&db.parts.find(p=>p.ref&&nkey(p.ref)===nkey(ref));
+  if(ex){
+   let ch=false;
+   ['buy','sell'].forEach(k=>{if(col[k]!==undefined&&g(r,k)!==''){const v=num(g(r,k));if(Math.abs((ex[k]||0)-v)>0.0049){ex[k]=v;ch=true}}});
+   if(ch)updated++;else known++;
+   return}
   const cv=nkey(g(r,'cat')),cat=PCATS.find(c=>nkey(c)===cv)||(cv.length>=4?PCATS.find(c=>nkey(c).startsWith(cv.slice(0,5))):'')||'Autre';
   db.parts.push({id:uid(),name,ref,cat,qty:Math.max(0,Math.round(num(g(r,'qty')))),threshold:col.thr===undefined?1:Math.max(0,Math.round(num(g(r,'thr')))),buy:num(g(r,'buy')),sell:num(g(r,'sell')),supplier:g(r,'sup'),loc:g(r,'loc')});added++;
  });
- return{added,known,skipped};
+ return{added,known,updated,skipped};
 }
 function importPartsCSV(inp){
  const f=inp.files&&inp.files[0];if(!f)return;
@@ -1486,7 +1492,7 @@ function importPartsCSV(inp){
    let txt;try{txt=new TextDecoder('utf-8',{fatal:true}).decode(fr.result)}catch(e){txt=new TextDecoder('windows-1252').decode(fr.result)}
    const r=importPartsFromText(txt);
    if(r.err){toast(r.err)}
-   else{save();render();toast(r.added+' pièce'+(r.added>1?'s':'')+' ajoutée'+(r.added>1?'s':'')+(r.known?' · '+r.known+' déjà au stock (inchangée'+(r.known>1?'s':'')+')':'')+(r.skipped?' · '+r.skipped+' ligne'+(r.skipped>1?'s':'')+' ignorée'+(r.skipped>1?'s':''):''))}
+   else{save();render();toast(r.added+' pièce'+(r.added>1?'s':'')+' ajoutée'+(r.added>1?'s':'')+(r.updated?' · '+r.updated+' pièce'+(r.updated>1?'s':'')+' : prix mis à jour':'')+(r.known?' · '+r.known+' déjà au stock (inchangée'+(r.known>1?'s':'')+')':'')+(r.skipped?' · '+r.skipped+' ligne'+(r.skipped>1?'s':'')+' ignorée'+(r.skipped>1?'s':''):''))}
   }catch(e){toast('Fichier illisible : utilisez un fichier .csv')}
   inp.value='';
  };
