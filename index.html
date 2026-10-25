@@ -866,7 +866,7 @@ async function inboxPatch(id,f,quiet){
    c'est elle qui fabrique le PDF et l'envoie au client avec le message de changement d'étape. */
 function devisFor(r){
  const L=repDocs(r).filter(d=>d.kind==='devis');
- for(const s of ['Envoyé','Brouillon','Accepté']){const D=L.find(d=>d.status===s);if(D)return D}
+ for(const s of ['Envoyé','Brouillon','Accepté']){const D=L.find(d=>d.status===s);if(D){ensureLabor(D);return D}}
  return null;
 }
 function devisPayload(D){
@@ -906,7 +906,8 @@ async function sendDevisMail(id){
  if(!sbSess){toast('Connectez-vous à la boîte de demandes (menu Demandes) pour envoyer le devis.');return}
  const to=demandeMail(r);
  if(!to){toast("Le client n'a pas laissé d'adresse e-mail dans sa demande.");return}
- if(!confirm('Envoyer le devis '+D.number+' par e-mail à '+to+' ?\n\nLe client le reçoit en PDF.'))return;
+ ensureLabor(D);
+ if(!confirm('Envoyer le devis '+D.number+' par e-mail à '+to+' ?\n\nLe client le reçoit en PDF.'+(laborZero(D)?"\n\n⚠ La main d'œuvre est à 0 € sur ce devis.":'')))return;
  if(['recu','diag'].includes(r.status)){ /* même chemin que le changement d'étape : un seul e-mail, avec le PDF */
   if(D.status==='Brouillon'||D.status==='Refusé')D.status='Envoyé';
   setStatus(r.id,'devis',true);return;
@@ -1260,7 +1261,12 @@ function repairHTML(id){
 function setStatus(id,k,silent){
  const r=db.repairs.find(x=>x.id===id);if(!r||r.status===k){refreshModal();return}
  if(k==='pret'&&!silent&&!CHECK.every((_,i)=>r.check[i])&&!confirm("Le contrôle qualité n'est pas complet.\n\nPasser quand même à « Prêt à récupérer » ?")){refreshModal();return}
- if(k==='devis'&&!silent&&SB.on&&demandeMail(r)&&!devisFor(r)&&!confirm("Aucun devis n'est créé pour ce dossier.\n\nLe client va recevoir l'e-mail « Devis envoyé » SANS le PDF.\nPour joindre le devis : annulez, créez-le (+ Devis), puis passez-le à « Envoyé ».\n\nContinuer quand même ?")){refreshModal();return}
+ if(k==='devis'&&!silent&&SB.on&&demandeMail(r)){
+  const Dv=devisFor(r);
+  const q=!Dv?"Aucun devis n'est créé pour ce dossier.\n\nLe client va recevoir l'e-mail « Devis envoyé » SANS le PDF.\nPour joindre le devis : annulez, créez-le (+ Devis), puis passez-le à « Envoyé ».\n\nContinuer quand même ?"
+   :laborZero(Dv)?"La main d'œuvre est à 0 € sur le devis "+Dv.number+".\n\nLe client va recevoir ce devis tel quel.\n\nContinuer quand même ?":'';
+  if(q&&!confirm(q)){refreshModal();return}
+ }
  r.status=k;r.statusSince=today();log(r,'Statut → '+stL(k));
  if((k==='pret'||k==='clos')&&!r.doneAt)r.doneAt=today();
  if(k==='clos'&&!r.returnDate){r.returnDate=today();log(r,'Restitution enregistrée — garantie '+db.settings.warrantyMonths+" mois jusqu'au "+fmtDL(warrEnd(r)))}
@@ -1310,17 +1316,28 @@ function createDocFor(kind,rid,toRepair){
 }
 function newDoc(kind,rid,from,back){
  const r=db.repairs.find(x=>x.id===rid);if(!r)return;let lines=[];const F=from&&db.docs.find(x=>x.id===from);
- if(F)lines=JSON.parse(JSON.stringify(F.lines));
+ if(F){lines=JSON.parse(JSON.stringify(F.lines));lines.forEach(l=>{delete l.labor})} /* la ligne obligatoire ne concerne que les devis */
  else{
   const rate=db.settings.tvaExempt?0:Number(db.settings.tvaRate||0),base=r.estimate?+(Number(r.estimate)/(1+rate/100)).toFixed(2):0;
   r.parts.forEach(p=>{const P=pt(p.partId);if(P)lines.push({label:P.name,qty:p.qty,price:Number(P.sell)||0})});
   const ph=sum(lines,l=>l.qty*l.price);
-  lines.unshift({label:"Main d'œuvre — "+(r.issue||'réparation'),qty:1,price:Math.max(0,+(base-ph).toFixed(2))});
+  lines.unshift({label:LABOR+' — '+(r.issue||'réparation'),qty:1,price:Math.max(0,+(base-ph).toFixed(2)),labor:true});
  }
  const D=mkDoc(db,kind,r,lines,{fromDoc:from||''});db.docs.unshift(D);log(r,(kind==='devis'?'Devis ':'Facture ')+D.number+' créé');save();toast((kind==='devis'?'Devis ':'Facture ')+D.number+' créé');openDoc(D.id,back);
 }
-function openDoc(id,back){modal(()=>docEditHTML(id),back)}
-const lineRow=(id,l,i)=>`<tr><td><input value="${esc(l.label)}" onchange="setLine('${id}',${i},'label',this.value)" aria-label="Désignation"></td><td class="w60"><input type="number" min="0" step="1" value="${l.qty}" onchange="setLine('${id}',${i},'qty',this.value)" aria-label="Quantité"></td><td class="w90"><input type="number" min="0" step="0.01" value="${l.price}" onchange="setLine('${id}',${i},'price',this.value)" aria-label="Prix unitaire HT"></td><td class="amount right" id="lt${i}">${eur(l.qty*l.price)}</td><td><button class="icon-btn" title="Supprimer la ligne" onclick="rmLine('${id}',${i})">×</button></td></tr>`;
+/* Main d'œuvre : une ligne obligatoire sur chaque devis (jamais supprimable, toujours en tête) */
+const LABOR="Main d'œuvre";
+const isLaborLabel=s=>/^main d.?(œ|oe)uvre/i.test(String(s||'').trim());
+function ensureLabor(D){
+ if(!D||D.kind!=='devis'||!['Brouillon','Envoyé'].includes(D.status)||D.lines.some(l=>l.labor))return false;
+ const m=D.lines.find(l=>isLaborLabel(l.label));
+ if(m)m.labor=true;else D.lines.unshift({label:LABOR,qty:1,price:0,labor:true});
+ save();return true;
+}
+const laborZero=D=>{const L=D&&D.kind==='devis'&&D.lines.find(l=>l.labor);return !!L&&!(Number(L.qty)*Number(L.price)>0)};
+const laborWarn=D=>laborZero(D)?`<div class="notice warn" style="margin:10px 0 0">⚠ La main d'œuvre est à 0 € : pensez à indiquer son prix avant d'envoyer le devis.</div>`:'';
+function openDoc(id,back){ensureLabor(db.docs.find(x=>x.id===id));modal(()=>docEditHTML(id),back)}
+const lineRow=(id,l,i)=>`<tr><td><input value="${esc(l.label)}" onchange="setLine('${id}',${i},'label',this.value)" aria-label="Désignation"></td><td class="w60"><input type="number" min="0" step="1" value="${l.qty}" onchange="setLine('${id}',${i},'qty',this.value)" aria-label="Quantité"></td><td class="w90"><input type="number" min="0" step="0.01" value="${l.price}" onchange="setLine('${id}',${i},'price',this.value)" aria-label="Prix unitaire HT"></td><td class="amount right" id="lt${i}">${eur(l.qty*l.price)}</td><td>${l.labor?`<span class="muted" title="Ligne obligatoire sur chaque devis" style="cursor:help">🔒</span>`:`<button class="icon-btn" title="Supprimer la ligne" onclick="rmLine('${id}',${i})">×</button>`}</td></tr>`;
 function totalsHTML(D){const T=totals(D);return `<div><span>Total HT</span><b>${eur(T.ht)}</b></div>${D.exempt?'':`<div><span>TVA ${D.rate} %</span><b>${eur(T.tva)}</b></div>`}<div class="big"><span>Total TTC</span><b>${eur(T.ttc)}</b></div>`}
 function docEditHTML(id){
  const D=db.docs.find(x=>x.id===id);if(!D)return mh('','Document introuvable');
@@ -1329,15 +1346,21 @@ function docEditHTML(id){
  <div class="grid3">${fi('docs',id,'date','Date','date',D.date)}${isD?fi('docs',id,'validUntil',"Valable jusqu'au",'date',D.validUntil):`<div class="field"><label>Mode de paiement</label><select onchange="upd('docs','${id}','method',this.value)"><option value="">—</option>${opts(METHODS,D.method)}</select></div>`}
  <div class="field"><label>Statut</label><select onchange="setDocStatus('${id}',this.value)">${DOCST[D.kind].map(s=>opt(s,s,D.status)).join('')}</select></div></div>
  <div class="sec"><h4>Lignes (prix unitaires HT)</h4><div class="table-wrap"><table class="tbl-in"><thead><tr><th>Désignation</th><th>Qté</th><th>PU HT</th><th class="right">Total HT</th><th></th></tr></thead><tbody>${D.lines.map((l,i)=>lineRow(id,l,i)).join('')}</tbody></table></div>
-  <button class="secondary small" style="margin-top:8px" onclick="addLine('${id}')">+ Ligne</button><div class="totals" id="docTot">${totalsHTML(D)}</div></div>
+  <button class="secondary small" style="margin-top:8px" onclick="addLine('${id}')">+ Ligne</button><div class="totals" id="docTot">${totalsHTML(D)}</div><div id="docWarn">${laborWarn(D)}</div></div>
  <div class="sec">${ft('docs',id,'note','Note visible sur le document (optionnel)',D.note)}</div>
  <div class="form-actions"><button class="danger" style="margin-right:auto" onclick="delDoc('${id}')">Supprimer</button>${isD&&D.status==='Accepté'&&!hasInv?`<button class="secondary" onclick="toInvoice('${id}')">→ Convertir en facture</button>`:''}<button class="secondary" onclick="previewDoc('${id}')">🖶 Aperçu / Imprimer</button>${isD&&SB.on&&r&&demandeMail(r)?`<button class="secondary" onclick="sendDevisMail('${id}')">✉ Envoyer par e-mail</button>`:''}<button class="primary" onclick="backModal()">Fermer</button></div>`;
 }
-function setLine(id,i,f,v){const D=db.docs.find(x=>x.id===id);D.lines[i][f]=f==='label'?v:Math.max(0,Number(v)||0);save();const l=D.lines[i];$('#lt'+i).textContent=eur(l.qty*l.price);$('#docTot').innerHTML=totalsHTML(D)}
+function setLine(id,i,f,v){
+ const D=db.docs.find(x=>x.id===id),L=D.lines[i];
+ if(f==='label'&&L.labor&&!String(v).trim()){L.label=LABOR;save();refreshModal();return} /* la ligne obligatoire garde toujours un nom */
+ L[f]=f==='label'?v:Math.max(0,Number(v)||0);save();$('#lt'+i).textContent=eur(L.qty*L.price);$('#docTot').innerHTML=totalsHTML(D);$('#docWarn').innerHTML=laborWarn(D);
+}
 function addLine(id){db.docs.find(x=>x.id===id).lines.push({label:'',qty:1,price:0});save();refreshModal()}
-function rmLine(id,i){const D=db.docs.find(x=>x.id===id);D.lines.splice(i,1);save();refreshModal()}
+function rmLine(id,i){const D=db.docs.find(x=>x.id===id);if(D.lines[i]&&D.lines[i].labor){toast("La main d'œuvre est obligatoire sur chaque devis : modifiez son prix plutôt que de la supprimer.");return}D.lines.splice(i,1);save();refreshModal()}
 function setDocStatus(id,s){
- const D=db.docs.find(x=>x.id===id),r=db.repairs.find(x=>x.id===D.repairId);D.status=s;
+ const D=db.docs.find(x=>x.id===id),r=db.repairs.find(x=>x.id===D.repairId);
+ if(s==='Envoyé'&&D.kind==='devis'){ensureLabor(D);if(laborZero(D)&&!confirm("La main d'œuvre est à 0 € sur le devis "+D.number+".\n\nLe marquer « Envoyé » quand même ?")){refreshModal();return}}
+ D.status=s;
  if(D.kind==='devis'&&r){
   if(s==='Envoyé'&&['recu','diag'].includes(r.status))setStatus(r.id,'devis',true);
   if(s==='Accepté'&&['recu','diag','devis'].includes(r.status))setStatus(r.id,'valide',true);
@@ -1362,7 +1385,7 @@ function docHTML(D){
  <p class="doc-foot">Garantie réparation : ${s.warrantyMonths} mois à compter de la restitution, limitée à la panne réparée et aux pièces remplacées.${s.legal?' '+esc(s.legal):''}</p></div>`;
 }
 function previewDoc(id){
- const sb=modalBack,D=db.docs.find(x=>x.id===id),s=db.settings;
+ const sb=modalBack,D=db.docs.find(x=>x.id===id),s=db.settings;ensureLabor(D);
  modal(()=>`${mh((D.kind==='devis'?'Devis ':'Facture ')+D.number,'Aperçu avant impression')}${(!s.address||!s.siret)?`<div class="notice warn" style="margin:0 0 12px">Complétez l'adresse et le SIRET de la société dans <a href="#" onclick="closeModal();go('settings');return false">Paramètres</a> avant d'émettre vos documents.</div>`:''}${docHTML(D)}<div class="form-actions"><button class="secondary" onclick="backModal()">← Modifier</button><button class="primary" onclick="printHTML(docHTML(db.docs.find(x=>x.id==='${id}')))">🖶 Imprimer / Enregistrer en PDF</button></div>`,()=>openDoc(id,sb));
 }
 

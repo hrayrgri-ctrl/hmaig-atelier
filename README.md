@@ -21,6 +21,10 @@ Quand un dossier créé depuis une demande en ligne change d'étape, le client r
 - Un déclencheur de la base (extension `pg_net`) appelle alors un script Google Apps Script, qui fabrique le PDF et envoie l'e-mail depuis `hmaigservices@gmail.com` (limite Gmail : 100 e-mails par jour).
 - Le déclencheur et le script contiennent un code secret : ils ne sont pas dans ce dépôt.
 
+## Devis : main d'œuvre obligatoire
+
+Chaque devis commence par une ligne « Main d'œuvre » qui ne peut pas être supprimée (son prix reste modifiable). Un avertissement s'affiche tant qu'elle est à 0 €, et une confirmation est demandée avant d'envoyer un tel devis. Les anciens devis en brouillon ou déjà envoyés reçoivent cette ligne à leur ouverture ; les devis acceptés ne sont pas modifiés.
+
 ## Verrou administrateur (actuellement désactivé)
 
 Le verrou est **désactivé** : la configuration `ADMIN_EMAIL` est vide, aucun mot de passe n'est demandé. Pour le réactiver, renseigner `ADMIN_EMAIL` (compte Supabase `hmaigservices@gmail.com`) et republier. Lorsqu'il est actif, les actions sensibles demandent le mot de passe du compte `hmaigservices@gmail.com` : suppression d'un client, d'un appareil hors garantie, d'un dossier, d'un devis, d'une facture ou d'une demande en ligne ; création, modification ou suppression de stock ; paramètres de la société et techniciens ; effacement ou restauration des données.
