@@ -785,6 +785,7 @@ const QR_SVG='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcv
 const SBK='hmaig_sb_session';
 let sbSess=null;try{sbSess=JSON.parse(localStorage.getItem(SBK)||'null')}catch(e){}
 const INBOX={list:[],loaded:false,loading:false,err:'',new:0,filter:'new'};
+const INBOX_COLS='id,code,created_at,updated_at,kind,status,public_status,public_message,name,phone,email,store,device_type,model,serial,sale_date,issue,consent,owner_note,repair_ref'; /* sans « devis » : le PDF n'a pas besoin d'être relu à chaque actualisation */
 const DSTAT={nouvelle:['Nouvelle','orange'],vue:['Vue','blue'],convertie:['Dossier créé','green'],refusee:['Sans suite','grey']};
 const PUBL={recue:'Demande reçue',deposee:'Dossier ouvert',diagnostic:'Diagnostic en cours',devis:'Devis envoyé',validee:'Devis accepté',piece:"En attente d'une pièce",reparation:'Réparation en cours',controle:'Contrôle final',prete:'Prêt à récupérer',terminee:'Terminé',refusee:'Dossier clôturé'};
 const PUB_REP={recu:'deposee',diag:'diagnostic',devis:'devis',valide:'validee',piece:'piece',repar:'reparation',controle:'controle',pret:'prete',clos:'terminee',refuse:'refusee'};
@@ -832,7 +833,7 @@ async function inboxLoad(){
  if(!SB.on||!sbSess)return;
  INBOX.loading=true;
  try{
-  const r=await sbReq('GET','/rest/v1/demandes?select=*&order=created_at.desc&limit=500');
+  const r=await sbReq('GET','/rest/v1/demandes?select='+INBOX_COLS+'&order=created_at.desc&limit=500');
   if(r.status===401){INBOX.err=sbSess?'':'Session expirée : reconnectez-vous.'}
   else if(!r.ok)INBOX.err='Lecture impossible (code '+r.status+').';
   else{INBOX.list=await r.json();INBOX.loaded=true;INBOX.err=''}
@@ -861,13 +862,59 @@ async function inboxPatch(id,f,quiet){
 }
 
 /* ---------- Statut visible par le client (suivi) ---------- */
+/* Devis joint à l'e-mail : à l'étape « Devis envoyé », la base reçoit une copie du devis ;
+   c'est elle qui fabrique le PDF et l'envoie au client avec le message de changement d'étape. */
+function devisFor(r){
+ const L=repDocs(r).filter(d=>d.kind==='devis');
+ for(const s of ['Envoyé','Brouillon','Accepté']){const D=L.find(d=>d.status===s);if(D)return D}
+ return null;
+}
+function devisPayload(D){
+ const s=db.settings,c=cl(D.clientId),r=db.repairs.find(x=>x.id===D.repairId),d=r?dv(r.deviceId):{model:'',serial:''};
+ const cut=(v,n)=>String(v==null?'':v).slice(0,n);
+ return{
+  number:cut(D.number,40),date:D.date||'',validUntil:D.validUntil||'',rate:Number(D.rate)||0,exempt:!!D.exempt,note:cut(D.note,1000),
+  lines:(D.lines||[]).slice(0,60).map(l=>({label:cut(l.label,200),qty:Number(l.qty)||0,price:Number(l.price)||0})),
+  client:{name:cut(c.name,120),address:cut(c.address,300),phone:cut(c.phone,40),email:cut(c.email,160)},
+  device:{model:cut(d.model,120),serial:cut(d.serial,60)},ref:cut(r&&r.ref,40),issue:cut(r&&r.issue,300),
+  co:{name:cut(s.company,120),address:cut(s.address,300),phone:cut(s.phone,40),email:cut(s.email,160),siret:cut(s.siret,30)},
+  warranty:Number(s.warrantyMonths)||0,legal:cut(s.legal,800),
+  sent_at:new Date().toISOString() /* change à chaque envoi : c'est ce qui déclenche aussi un renvoi */
+ };
+}
+const demandeMail=o=>{const d=o&&o.demandeId&&INBOX.list.find(x=>x.id===o.demandeId);return d&&d.email?String(d.email).trim():''};
 async function pubSync(o,type){
  if(!SB.on||!o||!o.demandeId)return;
  const pub=(type==='sav'?PUB_SAV:PUB_REP)[o.status];if(!pub)return;
  if(!sbSess){o.pubDirty=true;save();return}
- const ok=await inboxPatch(o.demandeId,{public_status:pub},true);
- if(ok){if(o.pubDirty){delete o.pubDirty;save()}}
+ const f={public_status:pub};let D=null;
+ if(pub==='devis'&&type!=='sav'){D=devisFor(o);f.devis=D?devisPayload(D):null}
+ const ok=await inboxPatch(o.demandeId,f,true);
+ if(ok){
+  const was=o.pubDirty;if(was)delete o.pubDirty;
+  const to=D&&demandeMail(o);
+  if(to){if(D.status==='Brouillon')D.status='Envoyé';log(o,'Devis '+D.number+' envoyé par e-mail à '+to)}
+  if(was||to){save();if(to)refreshModal()}
+ }
  else{o.pubDirty=true;save();toast('Statut non transmis au suivi client : il sera renvoyé à la prochaine connexion')}
+}
+/* Bouton « Envoyer par e-mail » d'un devis (premier envoi ou renvoi) */
+async function sendDevisMail(id){
+ const D=db.docs.find(x=>x.id===id);if(!D||D.kind!=='devis')return;
+ const r=db.repairs.find(x=>x.id===D.repairId);
+ if(!SB.on||!r||!r.demandeId){toast("Ce dossier ne vient pas d'une demande en ligne : envoyez le devis vous-même (imprimer / PDF).");return}
+ if(!sbSess){toast('Connectez-vous à la boîte de demandes (menu Demandes) pour envoyer le devis.');return}
+ const to=demandeMail(r);
+ if(!to){toast("Le client n'a pas laissé d'adresse e-mail dans sa demande.");return}
+ if(!confirm('Envoyer le devis '+D.number+' par e-mail à '+to+' ?\n\nLe client le reçoit en PDF.'))return;
+ if(['recu','diag'].includes(r.status)){ /* même chemin que le changement d'étape : un seul e-mail, avec le PDF */
+  if(D.status==='Brouillon'||D.status==='Refusé')D.status='Envoyé';
+  setStatus(r.id,'devis',true);return;
+ }
+ const ok=await inboxPatch(r.demandeId,{devis:devisPayload(D)},true);
+ if(!ok){toast("Envoi impossible pour le moment (pas de connexion ?).");return}
+ if(D.status==='Brouillon')D.status='Envoyé';
+ log(r,'Devis '+D.number+' renvoyé par e-mail à '+to);save();refreshModal();toast('Devis envoyé à '+to);
 }
 function pubFlush(){
  db.repairs.filter(r=>r.demandeId&&r.pubDirty).forEach(r=>pubSync(r,'rep'));
@@ -1213,6 +1260,7 @@ function repairHTML(id){
 function setStatus(id,k,silent){
  const r=db.repairs.find(x=>x.id===id);if(!r||r.status===k){refreshModal();return}
  if(k==='pret'&&!silent&&!CHECK.every((_,i)=>r.check[i])&&!confirm("Le contrôle qualité n'est pas complet.\n\nPasser quand même à « Prêt à récupérer » ?")){refreshModal();return}
+ if(k==='devis'&&!silent&&SB.on&&demandeMail(r)&&!devisFor(r)&&!confirm("Aucun devis n'est créé pour ce dossier.\n\nLe client va recevoir l'e-mail « Devis envoyé » SANS le PDF.\nPour joindre le devis : annulez, créez-le (+ Devis), puis passez-le à « Envoyé ».\n\nContinuer quand même ?")){refreshModal();return}
  r.status=k;r.statusSince=today();log(r,'Statut → '+stL(k));
  if((k==='pret'||k==='clos')&&!r.doneAt)r.doneAt=today();
  if(k==='clos'&&!r.returnDate){r.returnDate=today();log(r,'Restitution enregistrée — garantie '+db.settings.warrantyMonths+" mois jusqu'au "+fmtDL(warrEnd(r)))}
@@ -1283,7 +1331,7 @@ function docEditHTML(id){
  <div class="sec"><h4>Lignes (prix unitaires HT)</h4><div class="table-wrap"><table class="tbl-in"><thead><tr><th>Désignation</th><th>Qté</th><th>PU HT</th><th class="right">Total HT</th><th></th></tr></thead><tbody>${D.lines.map((l,i)=>lineRow(id,l,i)).join('')}</tbody></table></div>
   <button class="secondary small" style="margin-top:8px" onclick="addLine('${id}')">+ Ligne</button><div class="totals" id="docTot">${totalsHTML(D)}</div></div>
  <div class="sec">${ft('docs',id,'note','Note visible sur le document (optionnel)',D.note)}</div>
- <div class="form-actions"><button class="danger" style="margin-right:auto" onclick="delDoc('${id}')">Supprimer</button>${isD&&D.status==='Accepté'&&!hasInv?`<button class="secondary" onclick="toInvoice('${id}')">→ Convertir en facture</button>`:''}<button class="secondary" onclick="previewDoc('${id}')">🖶 Aperçu / Imprimer</button><button class="primary" onclick="backModal()">Fermer</button></div>`;
+ <div class="form-actions"><button class="danger" style="margin-right:auto" onclick="delDoc('${id}')">Supprimer</button>${isD&&D.status==='Accepté'&&!hasInv?`<button class="secondary" onclick="toInvoice('${id}')">→ Convertir en facture</button>`:''}<button class="secondary" onclick="previewDoc('${id}')">🖶 Aperçu / Imprimer</button>${isD&&SB.on&&r&&demandeMail(r)?`<button class="secondary" onclick="sendDevisMail('${id}')">✉ Envoyer par e-mail</button>`:''}<button class="primary" onclick="backModal()">Fermer</button></div>`;
 }
 function setLine(id,i,f,v){const D=db.docs.find(x=>x.id===id);D.lines[i][f]=f==='label'?v:Math.max(0,Number(v)||0);save();const l=D.lines[i];$('#lt'+i).textContent=eur(l.qty*l.price);$('#docTot').innerHTML=totalsHTML(D)}
 function addLine(id){db.docs.find(x=>x.id===id).lines.push({label:'',qty:1,price:0});save();refreshModal()}

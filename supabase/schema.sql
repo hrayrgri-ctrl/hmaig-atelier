@@ -29,6 +29,14 @@ create table if not exists public.demandes (
   check (kind <> 'sav' or (store is not null and char_length(store) >= 2))
 );
 
+-- Copie du devis envoyé par e-mail au client (ajoutée après coup ; peut être relancée sans risque).
+-- Seul le compte atelier peut l'écrire ou la lire : les visiteurs n'ont aucun droit sur cette colonne.
+alter table public.demandes add column if not exists devis jsonb;
+do $$ begin
+  alter table public.demandes add constraint demandes_devis_taille
+    check (devis is null or pg_column_size(devis) <= 30000);
+exception when duplicate_object then null; end $$;
+
 create index if not exists demandes_created_idx on public.demandes (created_at desc);
 
 create or replace function public.touch_updated_at() returns trigger
