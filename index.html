@@ -47,6 +47,10 @@ a{color:var(--blue-x)}
 .nav button.active i{color:var(--amber)}
 .nav i{width:20px;font-style:normal;display:grid;place-items:center;flex:none}
 .nav i svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;display:block}
+.sdot{margin-left:auto;width:9px;height:9px;border-radius:50%;background:#6b7479;flex:none;display:inline-block;font-style:normal}
+.sdot.green{background:#3fb27f}.sdot.amber{background:var(--amber)}.sdot.red{background:#e5604d}.sdot.grey{background:#6b7479}
+.syncstat{display:flex;align-items:center;gap:10px;font-weight:600;padding:10px 12px;border-radius:10px;background:var(--soft);border:1px solid var(--line)}
+.syncstat .sdot{margin-left:0}
 .badge{margin-left:auto;background:var(--amber);color:var(--ink);font:700 11px var(--font);font-style:normal;border-radius:20px;padding:2px 8px}
 .side-note{margin-top:auto;background:#131516;border:1px solid #24282b;border-radius:14px;padding:14px;color:#98a1a6;font-size:12px;line-height:1.55}
 .side-note strong{display:block;color:#fff;font:700 13px var(--disp);margin-bottom:5px}
@@ -306,6 +310,7 @@ a.secondary{text-decoration:none;display:inline-block}
  .nav button{justify-content:center;padding:13px}
  .nav button.active:before{left:-11px}
  .badge{position:absolute;top:4px;right:2px;margin:0}
+ .nav .sdot{position:absolute;top:9px;right:9px;margin:0}
  .main{padding:24px 3vw}
  .content{grid-template-columns:1fr}
  .kpis{grid-template-columns:repeat(2,1fr)}
@@ -471,8 +476,8 @@ function demoDb(){
  return D;
 }
 let db=load();
-let storageWarned=false;
-function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){if(!storageWarned){storageWarned=true;toast('Stockage du navigateur indisponible : exportez vos données (Paramètres)')}}}
+let storageWarned=false,cloudHook=null; /* cloudHook : branché par la synchronisation en ligne (h_sync.js) */
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){if(!storageWarned){storageWarned=true;toast('Stockage du navigateur indisponible : exportez vos données (Paramètres)')}}if(cloudHook){try{cloudHook()}catch(e){console.warn('sync',e)}}}
 
 /* ============ Accès rapides ============ */
 const cl=id=>db.clients.find(c=>c.id===id)||{id:'',name:'—',phone:'',email:'',kind:'particulier',address:''};
@@ -499,6 +504,7 @@ const NAV=[
  ['docs',ico('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/>'),'Devis & factures'],
  ['stock',ico('<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/>'),'Pièces & stock'],
  ['alerts',ico('<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>'),'Notifications'],
+ ['sync',ico('<path d="M7 18a4 4 0 0 1-.6-7.95A5.5 5.5 0 0 1 17.3 8.7 4.7 4.7 0 0 1 17.5 18z"/>'),'Compte & synchro'],
  ['settings',ico('<path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>'),'Paramètres']
 ];
 const ui={rq:'',rs:'all',rt:'all',cq:'',ck:'all',dk:'all',dq:'',sq:'',ss:'open',pq:''};
@@ -515,14 +521,18 @@ const VIEWS={
  settings:{t:()=>'Paramètres',fn:()=>vSettings()}
 };
 function go(v){view=v;render();window.scrollTo({top:0})}
+function renderNav(){
+ const n=alerts().length;
+ $('#nav').innerHTML=NAV.filter(x=>(x[0]!=='inbox'&&x[0]!=='sync')||SB.on).map(([k,i,l])=>`<button class="${k===view?'active':''}" onclick="go('${k}')" aria-label="${esc(l)}"><i>${i}</i><span>${esc(l)}</span>${k==='alerts'&&n?`<em class="badge">${n}</em>`:''}${k==='inbox'&&INBOX.new?`<em class="badge">${INBOX.new}</em>`:''}${k==='sync'?`<em class="sdot ${cloudDot()}" title="${esc(cloudLabel()[0])}"></em>`:''}</button>`).join('');
+}
 function render(){
- const V=VIEWS[view],n=alerts().length;
- $('#nav').innerHTML=NAV.filter(x=>x[0]!=='inbox'||SB.on).map(([k,i,l])=>`<button class="${k===view?'active':''}" onclick="go('${k}')" aria-label="${esc(l)}"><i>${i}</i><span>${esc(l)}</span>${k==='alerts'&&n?`<em class="badge">${n}</em>`:''}${k==='inbox'&&INBOX.new?`<em class="badge">${INBOX.new}</em>`:''}</button>`).join('');
+ const V=VIEWS[view];
+ renderNav();
  const dt=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
  $('#eyebrow').textContent=dt.charAt(0).toUpperCase()+dt.slice(1);
  $('#title').textContent=V.t();
  $('#topAct').innerHTML=V.act?`<button class="primary" onclick="${V.act[1]}">${V.act[0]}</button>`:'';
- $('#pill').innerHTML=db.demo?'<button class="demo-pill" onclick="clearDemo()" title="Supprime les données fictives pour démarrer avec vos vraies données">Données fictives : démarrer à vide</button>':'';
+ $('#pill').innerHTML=(SB.on&&!sbSess?'<button class="demo-pill" onclick="go(\'sync\')" title="Connectez-vous pour retrouver vos données sur cet appareil">☁ Se connecter pour retrouver vos données</button> ':'')+(db.demo?'<button class="demo-pill" onclick="clearDemo()" title="Supprime les données fictives pour démarrer avec vos vraies données">Données fictives : démarrer à vide</button>':'');
  $('#view').innerHTML=V.fn();
  if(V.after)V.after();
 }
@@ -743,8 +753,8 @@ function vSettings(){
  </div></div></section>
  <div class="stack">
  <section class="panel"><div class="panel-head"><div><h3>Techniciens</h3><div class="panel-sub">Affectables sur chaque dossier</div></div></div><div class="pad">${s.technicians.map(t=>`<div class="row"><input value="${esc(t.name)}" onchange="renameTech('${t.id}',this.value)" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;flex:1;background:#fafbf7"><button class="icon-btn" title="Retirer" onclick="delTech('${t.id}')">×</button></div>`).join('')}<div class="inline-in"><input id="newTech" placeholder="Nom du technicien" onkeydown="if(event.key==='Enter'){addTech();event.preventDefault()}"><button class="secondary" onclick="addTech()">Ajouter</button></div></div></section>
- <section class="panel"><div class="panel-head"><div><h3>Données &amp; sauvegarde</h3><div class="panel-sub">Tout est stocké dans ce navigateur${SB.on?' (sauf les demandes clients, gardées en ligne)':''} (${(JSON.stringify(db).length/1024).toFixed(0)} Ko)</div></div></div><div class="pad">
-  <div class="notice warn" style="margin:0 0 12px">Les données ne sont pas partagées entre ordinateurs. Exportez régulièrement une sauvegarde.</div>${SB.on&&ADMIN_MAIL?`<div class="notice" style="margin:0 0 12px">🔒 <b>Verrou administrateur</b> : le mot de passe du compte ${esc(ADMIN_MAIL)} est demandé pour supprimer (client, appareil hors garantie, dossier, devis, facture, demande), modifier le stock ou les paramètres, et restaurer ou effacer les données.</div>`:''}
+ <section class="panel"><div class="panel-head"><div><h3>Données &amp; sauvegarde</h3><div class="panel-sub">${SB.on&&sbSess&&cloudLinked()?'Copie de travail de cet appareil, synchronisée en ligne':'Stocké dans ce navigateur'}${SB.on?' (les demandes clients sont gardées en ligne)':''} (${(JSON.stringify(db).length/1024).toFixed(0)} Ko)</div></div></div><div class="pad">
+  ${SB.on&&sbSess&&cloudLinked()?`<div class="notice" style="margin:0 0 12px">☁ Vos données sont synchronisées en ligne (voir « Compte &amp; synchro »). Une sauvegarde de temps en temps reste conseillée.</div>`:SB.on?`<div class="notice warn" style="margin:0 0 12px">Ces données ne sont pas encore partagées avec vos autres appareils. <a href="#" onclick="go('sync');return false">Se connecter pour les synchroniser</a>. Exportez régulièrement une sauvegarde.</div>`:`<div class="notice warn" style="margin:0 0 12px">Les données ne sont pas partagées entre ordinateurs. Exportez régulièrement une sauvegarde.</div>`}${SB.on&&ADMIN_MAIL?`<div class="notice" style="margin:0 0 12px">🔒 <b>Verrou administrateur</b> : le mot de passe du compte ${esc(ADMIN_MAIL)} est demandé pour supprimer (client, appareil hors garantie, dossier, devis, facture, demande), modifier le stock ou les paramètres, et restaurer ou effacer les données.</div>`:''}
   <div class="form-actions" style="justify-content:flex-start;margin:0"><button class="primary" onclick="exportJSON()">⇩ Sauvegarde complète (.json)</button><label class="secondary" style="cursor:pointer">⇧ Restaurer une sauvegarde<input type="file" accept="application/json,.json" style="display:none" onchange="importJSON(this)"></label><button class="secondary" onclick="exportCSV()">⇩ Réparations (.csv)</button></div>
   <div class="form-actions" style="justify-content:flex-start"><button class="danger" onclick="wipeAll()">Tout effacer</button></div></div></section></div></div>`;
 }
@@ -752,15 +762,16 @@ function setSet(k,v){db.settings[k]=v;save();if(k==='tvaExempt')toast(v?'TVA dé
 function addTech(){const v=$('#newTech').value.trim();if(!v)return;db.settings.technicians.push({id:uid(),name:v});save();render()}
 function renameTech(id,v){const t=db.settings.technicians.find(x=>x.id===id);if(t&&v.trim()){t.name=v.trim();save()}}
 function delTech(id){const n=db.repairs.filter(r=>r.techId===id).length;if(!confirm('Retirer ce technicien ?'+(n?`\n${n} dossier(s) lui sont affectés et passeront à « à assigner ».`:'')))return;db.repairs.forEach(r=>{if(r.techId===id)r.techId=''});db.settings.technicians=db.settings.technicians.filter(t=>t.id!==id);save();render()}
+const syncWarn=()=>SB.on&&sbSess&&cloudLinked()?'\n\n⚠ La synchronisation en ligne est active : vos autres appareils seront modifiés aussi (une copie de l\'état actuel reste disponible dans les sauvegardes en ligne).':'';
 function exportJSON(){download('hmaig-sauvegarde-'+today()+'.json',JSON.stringify(db,null,1),'application/json');toast('Sauvegarde téléchargée')}
 function importJSON(inp){
  const f=inp.files[0];if(!f)return;const fr=new FileReader();
  fr.onload=()=>{try{const d=JSON.parse(fr.result);if(!d||!Array.isArray(d.repairs)||!Array.isArray(d.clients))throw 0;
-  if(!confirm('Remplacer toutes les données actuelles par cette sauvegarde ('+d.repairs.length+' dossiers, '+d.clients.length+' clients) ?'))return;
+  if(!confirm('Remplacer toutes les données actuelles par cette sauvegarde ('+d.repairs.length+' dossiers, '+d.clients.length+' clients) ?'+syncWarn()))return;
   const b=blank();db=Object.assign(b,d);db.settings=Object.assign(blank().settings,d.settings||{});save();toast('Sauvegarde restaurée');go('dash')}catch(e){toast('Fichier invalide : ce n\'est pas une sauvegarde HMAIG')}inp.value=''};
  fr.readAsText(f);
 }
-function wipeAll(){if(!confirm('Effacer définitivement TOUTES les données (dossiers, clients, factures, stock) ?\n\nPensez à exporter une sauvegarde avant.'))return;if(!confirm('Dernière confirmation : tout effacer ?'))return;const s=db.settings;db=blank();db.settings=s;save();toast('Données effacées');go('dash')}
+function wipeAll(){if(!confirm('Effacer définitivement TOUTES les données (dossiers, clients, factures, stock) ?\n\nPensez à exporter une sauvegarde avant.'+syncWarn()))return;if(!confirm('Dernière confirmation : tout effacer ?'))return;const s=db.settings;db=blank();db.settings=s;save();toast('Données effacées');go('dash')}
 
 /* ============ Recherche globale ============ */
 function gsearch(v){
@@ -822,12 +833,12 @@ async function inboxLogin(e){
   const d=await r.json().catch(()=>({}));
   if(!r.ok){err.textContent=(r.status===400||r.status===401)?'E-mail ou mot de passe incorrect.':'Connexion impossible pour le moment.';b.disabled=false;b.textContent='Se connecter';return}
   d.user=d.user||{email:em};sbStore(sbFromToken(d));
-  await inboxLoad();pubFlush();render();toast('Connecté à la boîte de demandes');
+  await inboxLoad();pubFlush();render();toast('Connecté : demandes et données synchronisées en ligne');cloudSync({force:true});
  }catch(x){err.textContent='Connexion impossible : vérifiez votre accès internet.';b.disabled=false;b.textContent='Se connecter'}
 }
 async function inboxLogout(){
  try{if(sbSess)await fetch(SB.url+'/auth/v1/logout',{method:'POST',headers:{apikey:SB.key,Authorization:'Bearer '+sbSess.access_token}})}catch(e){}
- sbStore(null);INBOX.list=[];INBOX.loaded=false;INBOX.err='';inboxCount();render();
+ sbStore(null);INBOX.list=[];INBOX.loaded=false;INBOX.err='';inboxCount();cloudSet('off');render();
 }
 async function inboxLoad(){
  if(!SB.on||!sbSess)return;
@@ -1040,10 +1051,356 @@ function demandeToSav(id){
 
 /* ---------- Démarrage de la synchronisation ---------- */
 if(SB.on){
- $('#sideNote').innerHTML="<strong>Espace privé</strong>Dossiers, clients et factures restent dans ce navigateur. Seules les demandes de vos clients passent par une base en ligne protégée.";
+ $('#sideNote').innerHTML="<strong>Espace privé</strong>Connectez-vous (onglet « Compte &amp; synchro ») pour retrouver vos dossiers, clients et stock sur tous vos appareils. Les données sont stockées dans une base en ligne protégée, lisible uniquement avec votre compte.";
  setInterval(inboxTick,SB.poll);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden)inboxTick()});
  if(sbSess)inboxLoad().then(()=>{pubFlush();render()});
+}
+/* ============ Synchronisation en ligne de toutes les données de l'atelier ============ */
+/* Un seul document en ligne (table atelier_donnees), lu et écrit avec le compte atelier.
+   - chaque modification est envoyée ~2 s plus tard ;
+   - si un autre appareil a écrit entre-temps, les deux versions sont FUSIONNÉES fiche par fiche
+     (comparaison avec la dernière version commune) : rien n'est perdu ;
+   - hors connexion, l'outil continue de fonctionner et envoie tout au retour du réseau. */
+const CLK='hmaig_cloud_v1';
+const SYNC_COLS=['clients','devices','repairs','sav','docs','parts','orders'];
+const SYNC_ALL=SYNC_COLS.concat('technicians');
+const CLOUD={on:SB.on,dev:'',ver:0,base:null,dirty:false,at:0,state:SB.on?'off':'none',err:'',busy:false,again:false,applying:false,timer:null,rev:0,deferred:0,remote:null,hist:null,histErr:'',histBusy:false};
+try{const s=JSON.parse(localStorage.getItem(CLK)||'null');if(s){CLOUD.dev=s.dev||'';CLOUD.ver=s.ver||0;CLOUD.base=s.base||null;CLOUD.dirty=!!s.dirty;CLOUD.at=s.at||0}}catch(e){}
+function cloudStore(){try{localStorage.setItem(CLK,JSON.stringify({dev:CLOUD.dev,ver:CLOUD.ver,base:CLOUD.base,dirty:CLOUD.dirty,at:CLOUD.at}))}catch(e){}}
+if(!CLOUD.dev){CLOUD.dev=(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent||'')?'Téléphone ':'Ordinateur ')+Math.random().toString(36).slice(2,6);cloudStore()}
+const cloudLinked=()=>CLOUD.ver>0&&!!CLOUD.base;
+
+/* ---------- Comparaison : empreintes ---------- */
+function canon(v){
+ if(v===null||typeof v!=='object')return JSON.stringify(v);
+ if(Array.isArray(v))return'['+v.map(canon).join(',')+']';
+ return'{'+Object.keys(v).filter(k=>v[k]!==undefined).sort().map(k=>JSON.stringify(k)+':'+canon(v[k])).join(',')+'}';
+}
+function h53(s){let a=0xdeadbeef,b=0x41c6ce57;for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);a=Math.imul(a^c,2654435761);b=Math.imul(b^c,1597334677)}a=Math.imul(a^(a>>>16),2246822507)^Math.imul(b^(b>>>13),3266489909);b=Math.imul(b^(b>>>16),2246822507)^Math.imul(a^(a>>>13),3266489909);return(4294967296*(2097151&b)+(a>>>0)).toString(36)}
+const hsh=v=>h53(canon(v));
+const isRec=x=>x&&typeof x==='object';
+function colsOf(d){const o={};SYNC_COLS.forEach(k=>{o[k]=Array.isArray(d[k])?d[k].filter(x=>isRec(x)&&x.id):[]});const t=(d.settings||{}).technicians;o.technicians=Array.isArray(t)?t.filter(x=>isRec(x)&&x.id):[];return o}
+/* Empreinte de chaque fiche telle qu'elle était à la dernière synchronisation (sert de point de comparaison). */
+function baseOf(d){
+ const b={c:{},s:{},d:{}},C=colsOf(d);
+ SYNC_ALL.forEach(n=>{b.c[n]={};C[n].forEach(x=>{b.c[n][x.id]=hsh(x)})});
+ const S=d.settings||{};Object.keys(S).forEach(k=>{if(k!=='technicians')b.s[k]=hsh(S[k])});
+ Object.keys(d.dismissed||{}).forEach(k=>{b.d[k]=hsh(d.dismissed[k])});
+ return b;
+}
+const isEmptyDoc=d=>!d||SYNC_COLS.every(k=>!(Array.isArray(d[k])&&d[k].length));
+function cloudNormalise(d){
+ const o=Object.assign(blank(),d);o.settings=Object.assign(blank().settings,d.settings||{});
+ o.counters=o.counters||{};o.dismissed=o.dismissed||{};
+ SYNC_COLS.forEach(k=>{if(!Array.isArray(o[k]))o[k]=[]});
+ if(!Array.isArray(o.settings.technicians))o.settings.technicians=blank().settings.technicians;
+ return o;
+}
+
+/* ---------- Fusion à trois voies ---------- */
+/* L = version locale, R = version en ligne, B = empreinte de la dernière version commune.
+   Une fiche modifiée d'un seul côté est reprise telle quelle ; modifiée des deux côtés, la version
+   de cet appareil l'emporte ; supprimée d'un côté mais modifiée de l'autre, elle est conservée. */
+function pick(L,R,B){
+ const hl=L===undefined?undefined:hsh(L),hr=R===undefined?undefined:hsh(R);
+ if(hl===hr)return L;
+ if(B===undefined)return L!==undefined?L:R;
+ const lc=hl!==B,rc=hr!==B;
+ if(!lc)return R;
+ if(!rc)return L;
+ return L!==undefined?L:R;
+}
+function cloudMerge(L,R,B){
+ B=B||{c:{},s:{},d:{}};
+ const LC=colsOf(L),RC=colsOf(R),out=Object.assign({},L),cols={};
+ SYNC_ALL.forEach(n=>{
+  const la=LC[n],ra=RC[n],bm=(B.c&&B.c[n])||{};
+  const lm=new Map(la.map(x=>[x.id,x])),rm=new Map(ra.map(x=>[x.id,x])),got=new Map();
+  new Set([...lm.keys(),...rm.keys(),...Object.keys(bm)]).forEach(id=>{const v=pick(lm.get(id),rm.get(id),bm[id]);if(v!==undefined)got.set(id,v)});
+  const mid=[];ra.forEach(x=>{if(got.has(x.id)){mid.push(got.get(x.id));got.delete(x.id)}});
+  /* fiches présentes seulement ici : en tête si elles l'étaient dans la liste locale, sinon à la fin */
+  const sh=la.findIndex(x=>rm.has(x.id)),head=[],tail=[];
+  la.forEach((x,i)=>{if(got.has(x.id))(sh>=0&&i<sh?head:tail).push(got.get(x.id))});
+  cols[n]=head.concat(mid,tail);
+ });
+ SYNC_COLS.forEach(n=>{out[n]=cols[n]});
+ const S=Object.assign({},L.settings||{}),RS=R.settings||{},Bs=B.s||{};
+ new Set([...Object.keys(S),...Object.keys(RS),...Object.keys(Bs)]).forEach(k=>{
+  if(k==='technicians')return;
+  const v=pick(S[k],RS[k],Bs[k]);if(v===undefined)delete S[k];else S[k]=v;
+ });
+ S.technicians=cols.technicians;out.settings=S;
+ const K=Object.assign({},L.counters||{});
+ Object.keys(R.counters||{}).forEach(k=>{K[k]=Math.max(Number(K[k]||0),Number(R.counters[k]||0))});
+ out.counters=K;
+ const Ld=L.dismissed||{},Rd=R.dismissed||{},Bd=B.d||{},D={};
+ new Set([...Object.keys(Ld),...Object.keys(Rd),...Object.keys(Bd)]).forEach(k=>{const v=pick(Ld[k],Rd[k],Bd[k]);if(v!==undefined)D[k]=v});
+ out.dismissed=D;
+ out.demo=!!(L.demo&&R.demo);
+ return out;
+}
+
+/* ---------- États affichés ---------- */
+const CSTATE={
+ none:['Synchronisation indisponible','grey'],
+ off:['Non connecté : les données restent seulement sur cet appareil','grey'],
+ sync:['Synchronisation en cours…','amber'],
+ ok:['À jour','green'],
+ wait:['Modifications en attente d\'envoi','amber'],
+ offline:['Pas de connexion : tout est gardé ici et sera envoyé dès le retour du réseau','amber'],
+ err:['Synchronisation impossible pour le moment','red'],
+ forbid:['Ce compte n\'est pas autorisé à enregistrer les données de l\'atelier','red'],
+ choice:['Un choix est nécessaire pour finir la mise en route','red'],
+ vide:['Rien n\'est encore enregistré en ligne','amber']
+};
+function cloudLabel(){
+ const s=CLOUD.state,x=CSTATE[s]||CSTATE.err;let t=x[0];
+ if(s==='ok'&&CLOUD.at)t='À jour · dernière synchronisation à '+new Date(CLOUD.at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+ if(s==='err'&&CLOUD.err)t=CLOUD.err;
+ return[t,x[1]];
+}
+const cloudDot=()=>cloudLabel()[1];
+function cloudSet(s,err){
+ const ch=CLOUD.state!==s||CLOUD.err!==(err||'');
+ CLOUD.state=s;CLOUD.err=err||'';
+ if(ch)cloudUI();
+}
+function cloudUI(){
+ if(typeof renderNav==='function')renderNav();
+ const a=document.activeElement;
+ if(view==='sync'&&!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&$('#view').contains(a))){$('#view').innerHTML=VIEWS.sync.fn()}
+}
+const cloudModalOpen=()=>$('#modalBack').classList.contains('open');
+function cloudBusy(){
+ const modal=cloudModalOpen(),a=document.activeElement,typing=!!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName||'')&&a.id!=='gs'&&$('#view').contains(a));
+ if(!modal&&!typing)return false;
+ if(!modal&&CLOUD.deferred&&Date.now()-CLOUD.deferred>20000)return false;
+ return true;
+}
+function cloudDefer(){
+ CLOUD.deferred=CLOUD.deferred||Date.now();
+ cloudSet('wait');
+ clearTimeout(CLOUD.timer);CLOUD.timer=setTimeout(()=>cloudSync(),4000);
+}
+function cloudKick(){if(CLOUD.on&&sbSess&&(CLOUD.deferred||CLOUD.dirty)){clearTimeout(CLOUD.timer);CLOUD.timer=setTimeout(()=>cloudSync(),400)}}
+
+/* ---------- Accès à la base ---------- */
+const cErr=(code,msg)=>{const e=new Error(msg||code);e.code=code;return e};
+async function cloudGet(full){
+ const r=await sbReq('GET','/rest/v1/atelier_donnees?select=version,modifie_le,modifie_par'+(full?',contenu':'')+'&id=eq.1');
+ if(r.status===401)throw cErr('auth');
+ if(!r.ok)throw cErr('http','Lecture impossible (code '+r.status+')');
+ const a=await r.json(),x=Array.isArray(a)&&a[0];
+ return x?{ver:Number(x.version),at:x.modifie_le,by:x.modifie_par||'',doc:x.contenu||null}:{ver:0,at:null,by:'',doc:null};
+}
+async function cloudPush(expected,force){
+ const snap=JSON.parse(JSON.stringify(db)),base=baseOf(snap),rev=CLOUD.rev;
+ const r=await sbReq('POST','/rest/v1/rpc/enregistrer_donnees',{p_contenu:snap,p_version_attendue:expected,p_appareil:CLOUD.dev,p_sauvegarde:!!force});
+ if(r.status===401)throw cErr('auth');
+ if(r.status===403)throw cErr('forbid');
+ if(!r.ok)throw cErr('http','Envoi impossible (code '+r.status+')');
+ const j=await r.json();
+ if(!j||!j.ok)return{ok:false,ver:j&&j.version};
+ CLOUD.ver=Number(j.version);CLOUD.base=base;CLOUD.at=Date.now();CLOUD.dirty=CLOUD.rev!==rev;CLOUD.deferred=0;cloudStore();
+ if(CLOUD.dirty)CLOUD.again=true;
+ return{ok:true};
+}
+function cloudApply(doc){CLOUD.applying=true;try{db=cloudNormalise(doc);save()}finally{CLOUD.applying=false}}
+function cloudAdopt(doc,ver){
+ cloudApply(doc);
+ CLOUD.ver=ver;CLOUD.base=baseOf(db);CLOUD.dirty=false;CLOUD.at=Date.now();CLOUD.deferred=0;cloudStore();
+ render();
+}
+
+/* ---------- Déroulement d'une synchronisation ---------- */
+function cloudChanged(){
+ if(!CLOUD.on||CLOUD.applying)return;
+ CLOUD.rev++;
+ if(cloudLinked()){CLOUD.dirty=true;cloudStore()}
+ if(!sbSess)return;
+ if((CLOUD.state==='ok'||CLOUD.state==='err'||CLOUD.state==='offline')&&cloudLinked())cloudSet('wait');
+ clearTimeout(CLOUD.timer);CLOUD.timer=setTimeout(()=>cloudSync(),1800);
+}
+async function cloudSync(opts){
+ opts=opts||{};
+ if(!CLOUD.on)return;
+ if(!sbSess){if(CLOUD.state!=='off')cloudSet('off');return}
+ if(CLOUD.busy){CLOUD.again=true;return}
+ if(CLOUD.state==='choice'&&!opts.force)return;
+ CLOUD.busy=true;CLOUD.again=false;
+ if(CLOUD.state!=='wait'||opts.force)cloudSet('sync');
+ try{await cloudRun(opts)}catch(e){cloudFail(e)}
+ CLOUD.busy=false;
+ if(CLOUD.again){CLOUD.again=false;clearTimeout(CLOUD.timer);CLOUD.timer=setTimeout(()=>cloudSync(),300)}
+}
+function cloudFail(e){
+ const c=e&&e.code;
+ if(!sbSess){cloudSet('off');toast('Session expirée : reconnectez-vous pour reprendre la synchronisation');return}
+ if(c==='auth'){cloudSet('err','Accès refusé : déconnectez-vous puis reconnectez-vous.');return}
+ if(c==='forbid'){cloudSet('forbid');return}
+ if(c==='http'){cloudSet('err',e.message);return}
+ cloudSet('offline');
+ clearTimeout(CLOUD.timer);CLOUD.timer=setTimeout(()=>cloudSync(),20000);
+}
+async function cloudRun(opts){
+ for(let n=0;n<6;n++){
+  const m=await cloudGet(false);
+  if(!sbSess)return cloudSet('off');
+  if(!cloudLinked()){if(await cloudFirst(m,opts)!=='retry')return;continue}
+  if(m.ver===0){CLOUD.ver=0;CLOUD.base=null;cloudStore();continue} /* le document en ligne a disparu : on repart de zéro */
+  if(m.ver===CLOUD.ver){
+   if(!CLOUD.dirty)return cloudSet('ok');
+   const p=await cloudPush(CLOUD.ver,false);
+   if(p.ok)return cloudSet(CLOUD.dirty?'wait':'ok');
+   continue;
+  }
+  /* une version plus récente existe en ligne */
+  if(cloudBusy())return cloudDefer();
+  const R=await cloudGet(true);
+  if(!R.doc)continue;
+  if(!CLOUD.dirty){cloudAdopt(R.doc,R.ver);return cloudSet('ok')}
+  cloudApply(cloudMerge(db,R.doc,CLOUD.base));
+  const p=await cloudPush(R.ver,false);
+  if(p.ok){render();return cloudSet(CLOUD.dirty?'wait':'ok')}
+ }
+ cloudSet('err','Synchronisation interrompue : trop de modifications simultanées, nouvel essai dans une minute.');
+}
+/* Première liaison de cet appareil avec les données en ligne */
+async function cloudFirst(m,opts){
+ opts=opts||{};
+ let R=null;
+ if(m.ver>0){R=await cloudGet(true);if(!R.doc)return'retry'}
+ const remoteEmpty=!R||isEmptyDoc(R.doc),localEmpty=!!db.demo||isEmptyDoc(db);
+ if(localEmpty){
+  if(remoteEmpty){
+   /* l'exemple n'est jamais envoyé tout seul ; sur demande explicite seulement (au cas où de vraies données y seraient mêlées) */
+   const send=db.demo&&!isEmptyDoc(db)&&(opts.sendDemo||(opts.force&&(opts.sendDemo=confirm("Cet appareil contient des données d'exemple (ou un mélange avec vos vraies données) et rien n'est encore enregistré en ligne.\n\nOK : envoyer quand même les données de cet appareil en ligne.\nAnnuler : ne rien envoyer."))));
+   if(!send){cloudSet('vide');return'done'}
+  }else{
+   if(cloudBusy()){cloudDefer();return'done'}
+   cloudAdopt(R.doc,R.ver);cloudSet('ok');
+   toast('Vos données ont été récupérées depuis la synchronisation en ligne');
+   return'done';
+  }
+ }
+ if(remoteEmpty){
+  const p=await cloudPush(m.ver,false);
+  if(!p.ok)return'retry';
+  cloudSet('ok');toast('Vos données sont maintenant enregistrées en ligne');
+  return'done';
+ }
+ if(cloudBusy()){cloudDefer();return'done'}
+ CLOUD.remote=R;cloudSet('choice');cloudChoiceModal();
+ return'done';
+}
+const syncCnt=d=>`${(d.repairs||[]).length} dossier${(d.repairs||[]).length>1?'s':''}, ${(d.clients||[]).length} client${(d.clients||[]).length>1?'s':''}, ${(d.parts||[]).length} pièce${(d.parts||[]).length>1?'s':''}, ${(d.docs||[]).length} devis/facture${(d.docs||[]).length>1?'s':''}`;
+function cloudChoiceModal(){
+ const R=CLOUD.remote;if(!R)return;
+ modal(()=>`${mh('Synchronisation','Des données existent déjà en ligne')}
+  <p style="margin:0 0 12px">Cet appareil et la version en ligne contiennent chacun des données. Que voulez-vous faire ?</p>
+  <div class="notice" style="margin:0 0 6px"><b>Cet appareil :</b> ${syncCnt(db)}</div>
+  <div class="notice" style="margin:0 0 16px"><b>En ligne :</b> ${syncCnt(R.doc)}${R.at?' · modifié le '+esc(dWhen(R.at)):''}</div>
+  <div style="display:grid;gap:10px">
+   <button class="primary" style="text-align:left;padding:13px 15px" onclick="cloudResolve('merge')"><b>Fusionner les deux (conseillé)</b><br><span style="font-weight:400;font-size:12.5px">Les fiches des deux côtés sont réunies : rien n'est perdu.</span></button>
+   <button class="secondary" style="text-align:left;padding:13px 15px" onclick="cloudResolve('local')"><b>Garder les données de cet appareil</b><br><span style="font-weight:400;font-size:12.5px">Remplace la version en ligne (une copie de celle-ci est conservée dans les sauvegardes).</span></button>
+   <button class="secondary" style="text-align:left;padding:13px 15px" onclick="cloudResolve('remote')"><b>Prendre les données en ligne</b><br><span style="font-weight:400;font-size:12.5px">Remplace les données de cet appareil (une sauvegarde de cet appareil est d'abord téléchargée).</span></button>
+  </div>
+  <div class="form-actions"><button class="secondary" onclick="closeModal()">Décider plus tard</button></div>`,()=>closeModal(),true);
+}
+async function cloudResolve(ch){
+ const R=CLOUD.remote;if(!R||CLOUD.busy)return;
+ CLOUD.busy=true;cloudSet('sync');
+ let again=false;
+ try{
+  if(ch==='remote'){
+   if(!db.demo&&!isEmptyDoc(db))exportJSON();
+   cloudAdopt(R.doc,R.ver);
+  }else{
+   if(ch==='merge')cloudApply(cloudMerge(db,R.doc,null));
+   const p=await cloudPush(R.ver,ch==='local');
+   if(!p.ok)again=true;
+  }
+  if(!again){CLOUD.remote=null;cloudSet('ok')}
+ }catch(e){cloudFail(e)}
+ CLOUD.busy=false;
+ closeModal();
+ if(again){CLOUD.state='sync';cloudSync({force:true});return}
+ if(CLOUD.state==='ok')toast(ch==='remote'?'Données en ligne récupérées':ch==='local'?'Les données de cet appareil sont en ligne':'Les deux versions ont été fusionnées');
+}
+
+/* ---------- Sauvegardes automatiques ---------- */
+async function syncLoadHistory(){
+ if(!sbSess||CLOUD.histBusy)return;
+ CLOUD.histBusy=true;CLOUD.histErr='';cloudUI();
+ try{
+  const r=await sbReq('GET','/rest/v1/atelier_historique?select=id,version,cree_le,appareil,resume&order=cree_le.desc&limit=30');
+  if(!r.ok)CLOUD.histErr='Lecture impossible (code '+r.status+').';
+  else CLOUD.hist=await r.json();
+ }catch(e){CLOUD.histErr='Pas de connexion.'}
+ CLOUD.histBusy=false;cloudUI();
+}
+async function syncRestore(id){
+ if(!sbSess||CLOUD.busy)return;
+ if(!confirm('Revenir à cette version ?\n\nLes données actuelles seront remplacées sur tous vos appareils. Une copie de l\'état actuel est conservée dans les sauvegardes.'))return;
+ CLOUD.busy=true;cloudSet('sync');
+ try{
+  const r=await sbReq('GET','/rest/v1/atelier_historique?select=contenu&id=eq.'+encodeURIComponent(id));
+  const a=r.ok?await r.json():[];
+  if(!a[0]||!a[0].contenu){CLOUD.busy=false;cloudSet('err','Cette sauvegarde est introuvable.');return}
+  cloudApply(a[0].contenu);
+  let ok=false;
+  for(let n=0;n<4&&!ok;n++){const m=await cloudGet(false);ok=(await cloudPush(m.ver,true)).ok}
+  if(ok){cloudSet('ok');render();toast('Version restaurée et synchronisée')}else cloudSet('err','Restauration non enregistrée : réessayez.');
+ }catch(e){cloudFail(e)}
+ CLOUD.busy=false;
+}
+
+/* ---------- Vue « Compte & synchro » ---------- */
+function syncLogin(){
+ return `<section class="panel"><div class="panel-head"><div><h3>Retrouvez vos données sur tous vos appareils</h3><div class="panel-sub">Connectez-vous avec le compte de l'atelier (le même e-mail et mot de passe que pour la boîte de demandes). Vos clients, dossiers, stock, devis et factures sont alors enregistrés en ligne et affichés partout où vous vous connectez.</div></div></div>
+ <div class="pad"><form onsubmit="inboxLogin(event)" style="max-width:420px"><div class="form-grid" style="grid-template-columns:1fr">
+ <div class="field"><label>E-mail du compte atelier</label><input id="sb_email" type="email" required autocomplete="username"></div>
+ <div class="field"><label>Mot de passe</label><input id="sb_pass" type="password" required autocomplete="current-password"></div></div>
+ <div id="sb_err" role="alert" style="color:var(--red);font-size:13px;margin:10px 0 0;min-height:18px"></div>
+ <div class="form-actions" style="justify-content:flex-start"><button class="primary" id="sb_btn" type="submit">Se connecter</button></div></form>
+ <div class="notice" style="margin-top:12px">Tant que vous n'êtes pas connecté, les données restent uniquement dans ce navigateur.</div></div></section>`;
+}
+function syncPanel(){
+ const [t,c]=cloudLabel();
+ const choice=CLOUD.state==='choice'&&CLOUD.remote?`<div class="notice warn" style="margin:0 0 12px">Des données existent déjà en ligne et sur cet appareil. <button class="primary small" onclick="cloudChoiceModal()">Choisir quoi faire</button></div>`:'';
+ const vide=CLOUD.state==='vide'?`<div class="notice" style="margin:0 0 12px">Cet appareil ne contient pas encore de vraies données (ou seulement l'exemple), et rien n'est enregistré en ligne. Connectez-vous d'abord sur l'appareil qui contient vos dossiers : ils seront envoyés automatiquement, puis retrouvés ici. <button class="secondary small" onclick="cloudSync({force:true,sendDemo:true})">Envoyer les données de cet appareil quand même</button></div>`:'';
+ return `<section class="panel"><div class="panel-head"><div><h3>Synchronisation en ligne</h3><div class="panel-sub">Connecté : ${esc(sbSess.email)}</div></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="secondary small" onclick="cloudSync({force:true})">↻ Synchroniser maintenant</button><button class="secondary small" onclick="inboxLogout()">Se déconnecter</button></div></div>
+  <div class="pad"><div class="syncstat ${c}"><span class="sdot ${c}"></span><span>${esc(t)}</span></div>${choice}${vide}
+  <p style="margin:12px 0 6px">Vos clients, dossiers, SAV, stock, devis, factures et réglages sont enregistrés en ligne quelques secondes après chaque modification. Sur un autre ordinateur, téléphone ou navigateur : ouvrez l'atelier, onglet « Compte &amp; synchro », connectez-vous avec le même e-mail et mot de passe, et tout s'affiche.</p>
+  <p style="margin:0;color:var(--muted);font-size:12.5px">Si deux appareils modifient en même temps, les fiches sont fusionnées automatiquement. Cet appareil : <b>${esc(CLOUD.dev)}</b>.</p></div></section>`;
+}
+function syncHistoryPanel(){
+ if(!sbSess)return'';
+ let body;
+ if(CLOUD.histBusy)body='<div class="notice">Chargement…</div>';
+ else if(CLOUD.histErr)body=`<div class="notice warn">${esc(CLOUD.histErr)}</div>`;
+ else if(!CLOUD.hist)body='<button class="secondary" onclick="syncLoadHistory()">Afficher les versions précédentes</button>';
+ else if(!CLOUD.hist.length)body='<div class="notice">Aucune sauvegarde pour le moment : elles se créent automatiquement au fil des modifications.</div>';
+ else body=`<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Contenu</th><th>Appareil</th><th></th></tr></thead><tbody>${CLOUD.hist.map(h=>`<tr><td class="nw date">${esc(dWhen(h.cree_le))}</td><td>${esc(syncCnt({repairs:{length:(h.resume||{}).dossiers||0},clients:{length:(h.resume||{}).clients||0},parts:{length:(h.resume||{}).pieces||0},docs:{length:(h.resume||{}).documents||0}}))}</td><td class="hide-sm">${esc(h.appareil||'—')}</td><td style="text-align:right"><button class="secondary small" onclick="syncRestore(${Number(h.id)})">Restaurer</button></td></tr>`).join('')}</tbody></table></div>`;
+ return `<section class="panel" style="margin-top:18px"><div class="panel-head"><div><h3>Sauvegardes automatiques en ligne</h3><div class="panel-sub">Une copie des données est conservée régulièrement. En cas d'erreur de manipulation, vous pouvez revenir à une version précédente.</div></div></div><div class="pad">${body}</div></section>`;
+}
+function vSync(){
+ if(!SB.on)return'<section class="panel"><div class="pad" style="padding-top:20px">La synchronisation en ligne n\'est pas configurée.</div></section>';
+ return(sbSess?syncPanel():syncLogin())+syncHistoryPanel();
+}
+VIEWS.sync={t:()=>'Compte & synchronisation',fn:()=>vSync()};
+
+/* ---------- Démarrage ---------- */
+cloudHook=cloudChanged;
+if(CLOUD.on){
+ setInterval(()=>{if(!document.hidden)cloudSync()},SB.poll);
+ document.addEventListener('visibilitychange',()=>{if(document.hidden){if(CLOUD.dirty)cloudSync()}else cloudSync()});
+ window.addEventListener('online',()=>cloudSync());
+ window.addEventListener('pagehide',()=>{if(CLOUD.dirty&&sbSess)cloudSync()});
+ if(sbSess)setTimeout(()=>cloudSync(),400);
+ else if(cloudLinked())CLOUD.state='off';
 }
 /* ============ Verrou « compte admin » ============ */
 /* Les actions sensibles (suppressions, stock, paramètres) demandent le mot de passe du compte
@@ -1170,7 +1527,7 @@ function devUnderWarranty(did){
 let modalFn=null,modalBack=null,curMsg=null;
 function modal(fn,back,narrow){modalFn=fn;modalBack=back||null;const m=$('#modal');m.className='modal'+(narrow?' narrow':'');m.innerHTML=fn();m.scrollTop=0;$('#modalBack').classList.add('open')}
 function refreshModal(){if(!modalFn||!$('#modalBack').classList.contains('open'))return;const m=$('#modal'),s=m.scrollTop;m.innerHTML=modalFn();m.scrollTop=s}
-function closeModal(){modalFn=null;modalBack=null;$('#modalBack').classList.remove('open');$('#modal').innerHTML='';render()}
+function closeModal(){modalFn=null;modalBack=null;$('#modalBack').classList.remove('open');$('#modal').innerHTML='';render();if(typeof cloudKick==='function')cloudKick()}
 function backModal(){const b=modalBack;if(b){modalBack=null;b()}else closeModal()}
 $('#modalBack').addEventListener('mousedown',e=>{if(e.target.id==='modalBack')backModal()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#modalBack').classList.contains('open'))backModal()});

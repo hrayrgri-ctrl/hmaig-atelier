@@ -5,6 +5,7 @@ Outil de gestion de l'atelier (réparations, SAV magasins, devis et factures, st
 - `index.html` — l'outil de l'atelier (https://atelier.hmaigservices.fr)
 - `client/index.html` — la page où les clients envoient leur demande et suivent leur réparation (https://atelier.hmaigservices.fr/client/)
 - `supabase/schema.sql` — la base de données des demandes (à exécuter une fois dans Supabase, en remplaçant `%%OWNER_EMAIL%%`)
+- `supabase/sync.sql` — la synchronisation des données de l'atelier entre appareils (à exécuter ensuite, même remplacement)
 - `.github/workflows/keepalive.yml` — évite la mise en pause de la base gratuite
 
 Aucun secret dans ce dépôt : la clé publique Supabase est faite pour être visible, la sécurité est assurée par les règles de la base.
@@ -20,6 +21,17 @@ Quand un dossier créé depuis une demande en ligne change d'étape, le client r
 - L'outil copie le devis dans la colonne `devis` de la demande (voir `supabase/schema.sql`) en même temps que la nouvelle étape.
 - Un déclencheur de la base (extension `pg_net`) appelle alors un script Google Apps Script, qui fabrique le PDF et envoie l'e-mail depuis `hmaigservices@gmail.com` (limite Gmail : 100 e-mails par jour).
 - Le déclencheur et le script contiennent un code secret : ils ne sont pas dans ce dépôt.
+
+## Synchronisation entre appareils
+
+L'onglet « Compte & synchro » enregistre en ligne les clients, appareils, réparations, SAV, devis, factures, stock, commandes et réglages, pour les retrouver sur n'importe quel ordinateur, téléphone ou navigateur en se connectant avec le compte de l'atelier (le même que pour « Demandes clients »).
+
+- **Fonctionnement** : l'outil garde sa copie locale (il marche donc sans connexion). Environ 2 secondes après chaque modification, il envoie l'ensemble à la table `atelier_donnees` (un seul document) ; il reprend les changements des autres appareils toutes les minutes, au retour sur l'onglet et au retour du réseau.
+- **Écriture contrôlée** : l'écriture passe uniquement par la fonction `enregistrer_donnees`, qui vérifie le numéro de version. Si un autre appareil a écrit entre-temps, l'envoi est refusé et l'outil **fusionne** les deux versions fiche par fiche (comparaison avec la dernière version commune) avant de réessayer : une fiche modifiée d'un seul côté est reprise, une fiche modifiée des deux côtés garde la version de l'appareil qui synchronise, une fiche supprimée d'un côté mais modifiée de l'autre est conservée.
+- **Première connexion d'un appareil** : appareil vide ou avec l'exemple → il récupère les données en ligne ; données en ligne vides → les siennes sont envoyées ; des données des deux côtés → un choix est proposé (fusionner, garder cet appareil, prendre les données en ligne ; dans ce dernier cas une sauvegarde de l'appareil est téléchargée avant). Les données d'exemple ne sont jamais envoyées sans confirmation.
+- **Sauvegardes automatiques** : la table `atelier_historique` conserve les 60 dernières versions (au plus une toutes les 30 minutes, plus une à chaque remplacement volontaire ou baisse brutale du volume de données). L'onglet permet de restaurer l'une d'elles.
+- **Sécurité** : les deux tables ne sont lisibles que par le compte de l'atelier (même règle que les demandes) ; personne d'autre, visiteurs compris, ne peut les lire ni les écrire.
+- **Hors connexion** : les modifications restent sur l'appareil (marquées « en attente ») et partent dès le retour du réseau.
 
 ## Devis : main d'œuvre obligatoire
 
