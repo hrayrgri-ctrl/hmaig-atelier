@@ -58,6 +58,8 @@ create table if not exists public.sav_magasin (
   statut   text not null check (statut in ('recue','deposee','diagnostic','devis','validee','piece','reparation','controle','prete','terminee','refusee')),
   decision text check (decision is null or char_length(decision) <= 200),
   info     text check (info is null or char_length(info) <= 500),
+  travaux  text check (travaux is null or char_length(travaux) <= 1000),   -- compte rendu écrit pour le magasin
+  pieces   text check (pieces is null or char_length(pieces) <= 300),      -- noms des pièces remplacées (sans prix)
   recu_le  date,
   maj_le   timestamptz not null default now(),
   unique (user_id, ref)
@@ -68,15 +70,18 @@ revoke all on public.sav_magasin from anon, authenticated;   -- aucun accès dir
 -- 4) Ce que voit un magasin : ses demandes en ligne + les SAV que l'atelier a saisis pour lui.
 create or replace function public.mes_reparations()
 returns table (origine text, ref text, code text, appareil text, serie text, panne text, statut text,
-               message text, decision text, info text, recu_le timestamptz, maj_le timestamptz)
+               message text, decision text, info text, recu_le timestamptz, maj_le timestamptz,
+               travaux text, pieces text)
 language sql stable security definer set search_path = public as $$
   select 'demande'::text, coalesce(d.repair_ref, d.code), d.code, d.model, d.serial, d.issue,
-         d.public_status, d.public_message, null::text, null::text, d.created_at, d.updated_at
+         d.public_status, d.public_message, null::text, null::text, d.created_at, d.updated_at,
+         null::text, null::text
     from public.demandes d
    where auth.uid() is not null and d.user_id = auth.uid()
   union all
   select 'atelier'::text, s.ref, null::text, s.appareil, s.serie, s.panne,
-         s.statut, null::text, s.decision, s.info, s.recu_le::timestamptz, s.maj_le
+         s.statut, null::text, s.decision, s.info, s.recu_le::timestamptz, s.maj_le,
+         s.travaux, s.pieces
     from public.sav_magasin s
    where auth.uid() is not null and s.user_id = auth.uid()
   order by 11 desc nulls last
@@ -124,19 +129,23 @@ begin
     raise exception 'Données invalides' using errcode = '22023';
   end if;
 
-  insert into public.sav_magasin (user_id, ref, appareil, serie, panne, statut, decision, info, recu_le)
+  insert into public.sav_magasin (user_id, ref, appareil, serie, panne, statut, decision, info, travaux, pieces, recu_le)
   select p_user, left(btrim(x ->> 'ref'), 40), left(coalesce(x ->> 'appareil', ''), 120),
          nullif(left(coalesce(x ->> 'serie', ''), 60), ''), nullif(left(coalesce(x ->> 'panne', ''), 2000), ''),
          x ->> 'statut', nullif(left(coalesce(x ->> 'decision', ''), 200), ''), nullif(left(coalesce(x ->> 'info', ''), 500), ''),
+         nullif(left(coalesce(x ->> 'travaux', ''), 1000), ''), nullif(left(coalesce(x ->> 'pieces', ''), 300), ''),
          nullif(x ->> 'recu_le', '')::date
     from jsonb_array_elements(p_items) x
   on conflict (user_id, ref) do update
      set appareil = excluded.appareil, serie = excluded.serie, panne = excluded.panne, statut = excluded.statut,
-         decision = excluded.decision, info = excluded.info, recu_le = excluded.recu_le, maj_le = now()
+         decision = excluded.decision, info = excluded.info, travaux = excluded.travaux, pieces = excluded.pieces,
+         recu_le = excluded.recu_le, maj_le = now()
    where (public.sav_magasin.appareil, public.sav_magasin.serie, public.sav_magasin.panne, public.sav_magasin.statut,
-          public.sav_magasin.decision, public.sav_magasin.info, public.sav_magasin.recu_le)
+          public.sav_magasin.decision, public.sav_magasin.info, public.sav_magasin.travaux, public.sav_magasin.pieces,
+          public.sav_magasin.recu_le)
          is distinct from
-         (excluded.appareil, excluded.serie, excluded.panne, excluded.statut, excluded.decision, excluded.info, excluded.recu_le);
+         (excluded.appareil, excluded.serie, excluded.panne, excluded.statut, excluded.decision, excluded.info,
+          excluded.travaux, excluded.pieces, excluded.recu_le);
 
   delete from public.sav_magasin s
    where s.user_id = p_user

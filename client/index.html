@@ -193,7 +193,7 @@ footer p{margin:0 0 8px}
       <div class="field full" id="rowStore" hidden><label for="f_store">Nom du magasin <i>*</i></label><input id="f_store" type="text" maxlength="120" autocomplete="organization"></div>
       <div class="field" id="rowName"><label for="f_name" id="lbName">Nom et prénom <i>*</i></label><input id="f_name" type="text" maxlength="120" autocomplete="name" required></div>
       <div class="field"><label for="f_phone">Téléphone <i>*</i></label><input id="f_phone" type="tel" inputmode="tel" maxlength="30" autocomplete="tel" required></div>
-      <div class="field full" id="rowEmail"><label for="f_email" id="lbEmail">E-mail</label><input id="f_email" type="email" maxlength="160" autocomplete="email"></div>
+      <div class="field full" id="rowEmail"><label for="f_email" id="lbEmail">E-mail</label><input id="f_email" type="email" maxlength="160" autocomplete="email"><p class="help">Facultatif, mais recommandé : vous recevez un e-mail à chaque étape de la réparation, et votre devis en PDF.</p></div>
       <div class="field"><label for="f_dtype">Type d'appareil</label><select id="f_dtype"><option>Smartphone</option><option>Tablette</option><option>Ordinateur portable</option><option>PC fixe</option><option>Console de jeux</option><option>Autre</option></select></div>
       <div class="field"><label for="f_model">Marque et modèle <i>*</i></label><input id="f_model" type="text" maxlength="120" placeholder="ex. iPhone 13, PS5, Dell Latitude" required></div>
       <div class="field full"><label for="f_serial" id="lbSerial">N° de série ou IMEI</label><input id="f_serial" type="text" maxlength="60" autocomplete="off"><p class="help" id="hpSerial">Facultatif. Sur un téléphone, composez <b>*#06#</b> pour afficher l'IMEI.</p></div>
@@ -775,7 +775,7 @@ function repHtml(x){
  const meta=[x.serie?'Code-barres / suivi '+esc(x.serie):'',x.recu_le?'Reçu le '+esc(fmtP(x.recu_le)):''].filter(Boolean).join(' · ');
  const row=(l,v)=>v?`<dt>${l}</dt><dd>${esc(v)}</dd>`:'';
  const steps=cur<0?'':`<ul class="steps">${SSTEPS.map((l,i)=>`<li class="${i<cur?'done':i===cur?'cur':''}"><i>${i<cur?'✓':''}</i>${esc(l)}</li>`).join('')}</ul>`;
- const det=open?`<div class="rd"><dl>${row('Appareil',x.appareil)}${row('Code-barres / n° de suivi',x.serie)}${row('Panne signalée',x.panne)}${row('Reçu le',fmtP(x.recu_le))}${row('Mis à jour le',fmtP(x.maj_le))}${x.code&&x.code!==x.ref?row('Code de suivi',x.code):''}${row("Décision de l'atelier",x.decision)}${row('Information',x.info)}${row("Message de l'atelier",x.message)}</dl>${steps}</div>`:'';
+ const det=open?`<div class="rd"><dl>${row('Appareil',x.appareil)}${row('Code-barres / n° de suivi',x.serie)}${row('Panne signalée',x.panne)}${row('Reçu le',fmtP(x.recu_le))}${row('Mis à jour le',fmtP(x.maj_le))}${x.code&&x.code!==x.ref?row('Code de suivi',x.code):''}${row("Décision de l'atelier",x.decision)}${row('Information',x.info)}${row('Travaux réalisés',x.travaux)}${row('Pièces remplacées',x.pieces)}${row("Message de l'atelier",x.message)}</dl>${steps}</div>`:'';
  return `<div class="rep"><button type="button" class="rh" data-k="${esc(k)}" aria-expanded="${open}"><span class="r1"><span><span class="ref">${esc(x.ref)}</span><span class="dev">${esc(x.appareil||'Appareil')}</span></span><span class="chip ${b==='done'?'good':b==='closed'?'grey':''}">${esc(SL[st])}</span></span>${meta?`<span class="meta">${meta}</span>`:''}</button>${det}</div>`;
 }
 $('#counts').addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;SH.filter=b.dataset.f;renderList()});

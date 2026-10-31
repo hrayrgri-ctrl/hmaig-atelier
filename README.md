@@ -7,6 +7,7 @@ Outil de gestion de l'atelier (réparations, SAV magasins, devis et factures, st
 - `supabase/schema.sql` — la base de données des demandes (à exécuter une fois dans Supabase, en remplaçant `%%OWNER_EMAIL%%`)
 - `supabase/sync.sql` — la synchronisation des données de l'atelier entre appareils (à exécuter ensuite, même remplacement)
 - `supabase/stores.sql` — les comptes des magasins partenaires et leur espace « Mes réparations » (à exécuter après `sync.sql`, **avant** de publier la version de l'outil qui l'utilise)
+- `supabase/stores_compte_rendu.sql` — ajoute le compte rendu d'intervention et les pièces remplacées à l'espace magasin (à exécuter après `stores.sql`, puis publier l'outil ; une installation neuve n'en a pas besoin, `stores.sql` l'inclut)
 - `supabase/magasins_sans_mail.sql` — coupe les e-mails automatiques de suivi pour les magasins (ils suivent leurs SAV dans leur espace) ; les particuliers les reçoivent toujours. À exécuter après l'installation des e-mails ; relancer le script d'installation des e-mails le remet comme avant
 - `.github/workflows/keepalive.yml` — évite la mise en pause de la base gratuite
 

@@ -1076,12 +1076,19 @@ async function shopsLoad(){
  SHOPS.loading=false;
  if(SHOPS.loaded)shopMirrorSoon();
 }
+/* Pièces remplacées (noms seulement, jamais les prix) du dossier de réparation lié à un SAV */
+function savPieces(s){
+ const r=db.repairs.find(x=>x.id===s.repairId);
+ if(!r||!r.parts||!r.parts.length)return'';
+ return r.parts.map(x=>{const p=pt(x.partId);return(x.qty>1?x.qty+' × ':'')+(p?p.name:'Pièce')}).join(', ');
+}
 function mirrorItems(c){
  const m=new Map(),cut=(v,n)=>String(v==null?'':v).slice(0,n);
  for(const s of db.sav){
   if(s.storeId!==c.id||!s.ref)continue;
   m.set(cut(s.ref,40),{ref:cut(s.ref,40),appareil:cut(s.device,120),serie:cut(s.serial,60),panne:cut(s.issue,2000),statut:PUB_SAV[s.status]||'deposee',
-   decision:s.decision&&s.decision!=='À qualifier'?cut(s.decision,200):'',info:cut(s.exchangeNote,500),recu_le:/^\d{4}-\d{2}-\d{2}$/.test(s.received||'')?s.received:null});
+   decision:s.decision&&s.decision!=='À qualifier'?cut(s.decision,200):'',info:cut(s.exchangeNote,500),
+   travaux:cut(s.report,1000),pieces:['prete','terminee'].includes(PUB_SAV[s.status])?cut(savPieces(s),300):'',recu_le:/^\d{4}-\d{2}-\d{2}$/.test(s.received||'')?s.received:null});
  }
  return[...m.values()];
 }
@@ -1116,7 +1123,7 @@ function shopLink(accId,clientId){
  const other=shopClient(accId);
  if(other&&other.id!==c.id){toast('Ce compte est déjà relié à la fiche « '+other.name+' ».');return}
  if(c.accountId&&c.accountId!==accId){toast('Cette fiche est déjà reliée à un autre compte : déliez-la d\'abord.');return}
- if(!confirm('Relier le compte en ligne « '+a.nom+' » ('+a.email+', contact '+a.contact+') à la fiche « '+c.name+' » ?\n\nCe compte pourra voir tous les SAV de cette fiche (référence, appareil, code-barres / n° de suivi, panne, statut, décision).\nVérifiez que c\'est bien votre magasin partenaire.'))return;
+ if(!confirm('Relier le compte en ligne « '+a.nom+' » ('+a.email+', contact '+a.contact+') à la fiche « '+c.name+' » ?\n\nCe compte pourra voir tous les SAV de cette fiche (référence, appareil, code-barres / n° de suivi, panne, statut, décision, compte rendu).\nVérifiez que c\'est bien votre magasin partenaire.'))return;
  c.accountId=accId;save();toast('Compte relié à « '+c.name+' »');mirrorRun();refreshAfterShop();
 }
 function shopLinkNew(accId){
@@ -1148,7 +1155,7 @@ function shopLinkLine(d){
 /* Section dans la fiche d'un client magasin */
 function shopSection(c){
  if(!SB.on||c.kind!=='magasin'||!sbSess||SHOPS.err==='off')return'';
- const note='<div class="muted" style="margin-top:6px">Le magasin voit ses SAV : référence, appareil, code-barres / n° de suivi, panne, statut, décision et échange. Jamais vos notes, devis ni factures.</div>';
+ const note='<div class="muted" style="margin-top:6px">Le magasin voit ses SAV : référence, appareil, code-barres / n° de suivi, panne, statut, décision, échange et le compte rendu que vous écrivez pour lui. Jamais vos notes, devis ni factures.</div>';
  if(c.accountId){
   const a=shopAcc(c.accountId);
   return `<div class="sec"><h4>Espace magasin en ligne</h4><div class="row"><span>Compte relié : <b>${esc(a?a.nom:'compte introuvable')}</b>${a?' · '+esc(a.email||''):''}</span><button class="secondary small" onclick="shopUnlink('${c.id}')">Retirer l'accès</button></div>${note}</div>`;
@@ -1539,7 +1546,7 @@ if(CLOUD.on){
    vérification est fermée aussitôt : rien n'est mémorisé, le mot de passe est redemandé à chaque action.
    Ce compte n'a AUCUN droit sur la base des demandes : il ne sert qu'à confirmer l'identité.
    Sans base configurée (version hors ligne), le verrou est inactif. */
-const ADMIN_MAIL='';
+const ADMIN_MAIL='hmaigservices@gmail.com';
 const ADM={open:false,fails:0,lockUntil:0};
 const admOn=()=>!!(SB.on&&ADMIN_MAIL);
 
@@ -1820,7 +1827,7 @@ function finSavHTML(sv){
  return `<div class="doc"><div class="doc-head"><div>${coBlock()}</div><div class="doc-ti"><h1>FIN D'INTERVENTION</h1><div>SAV ${esc(sv.ref)}</div><div>${r&&r.returnDate?'Terminée le '+fmtDL(r.returnDate):'Éditée le '+fmtDL(today())}</div></div></div>
  <div class="doc-grid"><div><b>Magasin</b><br>${esc(store.name)}${store.phone?'<br>'+esc(store.phone):''}</div><div><b>Appareil</b><br>${esc(sv.device)||'—'}${sv.serial?'<br>Code-barres / n° de suivi : '+esc(sv.serial):''}</div>
  <div><b>Panne signalée</b><br>${esc(sv.issue)||'—'}</div><div><b>Reçu le</b><br>${fmtDL(sv.received)}<br>${esc(w.l)}${w.end?' (jusqu\'au '+fmtDL(w.end)+')':''}</div>
- <div ${finFull}><b>Travaux réalisés</b><br><span style="white-space:pre-wrap">${esc(r&&r.diagnosis)||'—'}</span></div>
+ <div ${finFull}><b>Travaux réalisés</b><br><span style="white-space:pre-wrap">${esc(sv.report||(r&&r.diagnosis))||'—'}</span></div>
  <div><b>Pièces remplacées</b><br>${finParts(r)}</div><div><b>Contrôles finaux</b>${finChecks(r)}</div>
  <div ${finFull}><b>Suite donnée</b><br>${esc(sv.decision||'—')}${sv.exchangeNote?'<br>'+esc(sv.exchangeNote):''}</div></div>
  <div class="doc-sign">Appareil récupéré le ____ / ____ / ________ &nbsp; — &nbsp; Signature du magasin :</div></div>`;
@@ -1981,7 +1988,8 @@ function savHTML(id){
   ${fi('sav',id,'device','Appareil','text',s.device)}${fi('sav',id,'serial','Code-barres / n° de suivi du magasin','text',s.serial)}
   ${fi('sav',id,'issue','Panne signalée','text',s.issue,'full')}
   ${fi('sav',id,'saleDate','Date de vente au client final','date',s.saleDate)}${fi('sav',id,'warrantyMonths','Garantie du magasin (mois)','number',s.warrantyMonths)}
-  ${ft('sav',id,'exchangeNote','Échange / appareil de remplacement (modèle, n° de série…)',s.exchangeNote,'full')}</div>
+  ${ft('sav',id,'exchangeNote','Échange / appareil de remplacement (modèle, n° de série…)',s.exchangeNote,'full')}
+  ${ft('sav',id,'report',store.accountId?'Compte rendu pour le magasin (visible dans son espace en ligne)':'Compte rendu pour le magasin (travaux réalisés ; repris sur la fiche de fin d\'intervention)',s.report||'','full')}</div>
  <div class="sec"><h4>Historique</h4><ul class="tl">${s.history.map(h=>`<li><b>${fmtDL(h.d)}</b>${esc(h.t)}</li>`).join('')}</ul>
   <div class="inline-in"><input id="noteIn" placeholder="Ajouter une note (échange avec le magasin, décision…)" onkeydown="if(event.key==='Enter'){addNote('sav','${id}');event.preventDefault()}"><button class="secondary" onclick="addNote('sav','${id}')">Ajouter</button></div></div>
  <div class="form-actions"><button class="danger" style="margin-right:auto" onclick="delSav('${id}')">Supprimer</button><button class="primary" onclick="closeModal()">Fermer</button></div>`;
