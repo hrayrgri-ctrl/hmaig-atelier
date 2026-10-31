@@ -46,8 +46,8 @@ a{color:inherit}
 /* Carte principale */
 main{margin-top:-44px;padding-bottom:36px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(11,12,13,.12)}
-.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--soft);border-bottom:1px solid var(--line)}
-.tabs button{background:transparent;padding:15px 10px;font-weight:700;font-size:15px;color:var(--muted);border-bottom:3px solid transparent}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);background:var(--soft);border-bottom:1px solid var(--line)}
+.tabs button{background:transparent;padding:14px 6px;font-weight:700;font-size:15px;line-height:1.2;color:var(--muted);border-bottom:3px solid transparent}
 .tabs button[aria-selected="true"]{background:var(--panel);color:var(--ink);border-bottom-color:var(--amber)}
 .pane{padding:22px 20px 24px}
 .pane[hidden]{display:none}
@@ -65,7 +65,7 @@ main{margin-top:-44px;padding-bottom:36px}
 .field label{font-weight:600;font-size:14.5px}
 .field label i{font-style:normal;color:var(--red)}
 .field .help{font-size:13px;color:var(--muted);margin:0}
-input[type=text],input[type=tel],input[type=email],input[type=date],select,textarea{width:100%;border:1.5px solid #b9c0c4;border-radius:11px;padding:12px 13px;background:#fff;outline:none;font-size:16px}
+input[type=text],input[type=tel],input[type=email],input[type=password],input[type=date],select,textarea{width:100%;border:1.5px solid #b9c0c4;border-radius:11px;padding:12px 13px;background:#fff;outline:none;font-size:16px}
 textarea{min-height:104px;resize:vertical}
 input:focus,select:focus,textarea:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(242,164,0,.35)}
 .consent{display:flex;gap:11px;align-items:flex-start;margin:18px 0 0;font-size:14px;color:#3b4449}
@@ -115,9 +115,46 @@ input:focus,select:focus,textarea:focus{border-color:var(--ink);box-shadow:0 0 0
 .steps li.cur{color:var(--ink);font-weight:700}.steps li.cur i{background:var(--amber);border-color:var(--amber);color:var(--ink)}
 .upd{margin:14px 0 0;font-size:13px;color:var(--muted)}
 
+/* Espace magasin */
+.intro{margin:0 0 16px;color:#3b4449;font-size:15px}
+.sub{display:flex;gap:8px;margin:0 0 18px}
+.sub button{flex:1;padding:11px 8px;border:1.5px solid var(--line);border-radius:12px;background:#fff;font-weight:600;font-size:14.5px;line-height:1.25}
+.sub button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.pw{position:relative}
+.pw input{padding-right:96px}
+.pw button{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:transparent;padding:9px 11px;font-weight:600;font-size:13.5px;color:var(--muted);border-radius:8px}
+.lnk{background:none;border:0;padding:6px 0;margin:0;font-weight:600;font-size:14.5px;text-decoration:underline;color:var(--ink)}
+.links{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:12px 0 0}
+.shop{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px;padding:12px 14px;background:var(--soft);border:1px solid var(--line);border-radius:12px}
+.shop b{display:block;font:800 18px/1.2 var(--disp);letter-spacing:-.02em;overflow-wrap:anywhere}
+.shop small{display:block;color:var(--muted);font-size:13px;overflow-wrap:anywhere}
+.shop .secondary{flex:none;padding:9px 12px;font-size:14px}
+.counts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 14px}
+.counts button{background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:10px 6px;text-align:center;line-height:1.2}
+.counts b{display:block;font:800 26px/1.1 var(--disp);font-variant-numeric:tabular-nums}
+.counts span{display:block;font-size:13px;font-weight:600;color:var(--muted)}
+.counts button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.counts button[aria-pressed="true"] span{color:#d6dbde}
+.find{margin:0 0 14px}
+.rep{border:1px solid var(--line);border-radius:14px;margin:0 0 10px;background:#fff;overflow:hidden}
+.rh{display:block;width:100%;text-align:left;background:transparent;padding:13px 15px}
+.rh:hover{background:var(--soft)}
+.rh .r1{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.rh .ref{font:800 17px/1.2 var(--disp);letter-spacing:-.01em;overflow-wrap:anywhere}
+.rh .dev{display:block;color:#3b4449;font-size:14.5px;margin-top:2px;overflow-wrap:anywhere}
+.rh .meta{display:block;color:var(--muted);font-size:13px;margin-top:6px}
+.rh .chip{margin:0;flex:none;font-size:12.5px;padding:4px 10px;text-align:right}
+.rd{padding:2px 15px 15px;border-top:1px solid var(--line);font-size:14.5px}
+.rd dl{margin:12px 0 0;display:grid;grid-template-columns:auto 1fr;gap:6px 14px}
+.rd dt{color:var(--muted);font-weight:600;font-size:13.5px}
+.rd dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.empty{text-align:center;padding:26px 8px;color:var(--muted);font-size:15px}
+.tools{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:6px 0 0}
+.tools .upd{margin:0}
+
 footer{padding:6px 0 36px;color:var(--muted);font-size:13px}
 footer p{margin:0 0 8px}
-@media(max-width:560px){.grid{grid-template-columns:1fr}.pane{padding:20px 16px 22px}.codebox b{font-size:25px}.track{flex-direction:column}.track button{padding:14px}}
+@media(max-width:560px){.grid{grid-template-columns:1fr}.pane{padding:20px 16px 22px}.tabs button{font-size:13.5px}.shop{align-items:flex-start;flex-direction:column}.codebox b{font-size:25px}.track{flex-direction:column}.track button{padding:14px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -136,6 +173,7 @@ footer p{margin:0 0 8px}
   <div class="tabs" role="tablist">
    <button type="button" role="tab" id="tabNew" aria-selected="true" aria-controls="paneNew">Faire une demande</button>
    <button type="button" role="tab" id="tabTrack" aria-selected="false" aria-controls="paneTrack">Suivre ma réparation</button>
+   <button type="button" role="tab" id="tabShop" aria-selected="false" aria-controls="paneShop">Espace magasin</button>
   </div>
 
   <section class="pane" id="paneNew" role="tabpanel" aria-labelledby="tabNew">
@@ -150,6 +188,7 @@ footer p{margin:0 0 8px}
        <label><input type="radio" name="who" value="mag"><span>Un magasin partenaire</span></label>
       </div>
      </fieldset>
+     <div class="notice" id="magHint" hidden>Vous avez un compte magasin ? <button type="button" class="lnk" id="goShop">Ouvrez votre espace magasin</button> : vous y retrouvez toutes vos réparations, en attente ou déjà réparées. Pas encore de compte ? Il se crée en une minute.</div>
      <div class="grid">
       <div class="field full" id="rowStore" hidden><label for="f_store">Nom du magasin <i>*</i></label><input id="f_store" type="text" maxlength="120" autocomplete="organization"></div>
       <div class="field" id="rowName"><label for="f_name" id="lbName">Nom et prénom <i>*</i></label><input id="f_name" type="text" maxlength="120" autocomplete="name" required></div>
@@ -188,6 +227,108 @@ footer p{margin:0 0 8px}
    <div id="tRes"></div>
    <p class="fine">Le code de suivi vous a été donné au moment de votre demande (format HM-XXXX-XXXX). En cas de doute, contactez-nous.</p>
   </section>
+
+  <section class="pane" id="paneShop" role="tabpanel" aria-labelledby="tabShop" hidden>
+   <div class="notice" id="sNote" role="status" hidden></div>
+   <div class="notice err" id="sErr" role="alert" hidden></div>
+
+   <div id="vGuest">
+    <p class="intro">Magasins partenaires : avec un compte, suivez au même endroit toutes vos réparations, celles en attente comme celles déjà faites, et envoyez vos demandes de SAV sans ressaisir vos coordonnées.</p>
+    <div class="sub" role="group" aria-label="Connexion ou création de compte">
+     <button type="button" id="mLogin" aria-pressed="true">J'ai un compte</button>
+     <button type="button" id="mSignup" aria-pressed="false">Créer mon compte</button>
+    </div>
+    <form id="fLogin" novalidate>
+     <div class="grid">
+      <div class="field full"><label for="l_email">E-mail</label><input id="l_email" type="email" maxlength="160" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
+      <div class="field full"><label for="l_pw">Mot de passe</label><div class="pw"><input id="l_pw" type="password" maxlength="200" autocomplete="current-password"><button type="button" data-eye="l_pw" aria-label="Afficher le mot de passe">Afficher</button></div></div>
+     </div>
+     <button class="primary" type="submit" id="bLogin">Me connecter</button>
+     <div class="links"><button type="button" class="lnk" id="goForgot">Mot de passe oublié ?</button><button type="button" class="lnk" id="goSignup">Créer un compte</button></div>
+    </form>
+    <form id="fSignup" novalidate hidden>
+     <div class="grid">
+      <div class="field full"><label for="g_nom">Nom du magasin <i>*</i></label><input id="g_nom" type="text" maxlength="120" autocomplete="organization"></div>
+      <div class="field"><label for="g_contact">Nom du contact <i>*</i></label><input id="g_contact" type="text" maxlength="120" autocomplete="name"></div>
+      <div class="field"><label for="g_tel">Téléphone <i>*</i></label><input id="g_tel" type="tel" inputmode="tel" maxlength="30" autocomplete="tel"></div>
+      <div class="field full"><label for="g_email">E-mail <i>*</i></label><input id="g_email" type="email" maxlength="160" autocomplete="username" autocapitalize="off" spellcheck="false"><p class="help">Vous y recevrez le lien de confirmation. Utilisez une adresse que vous consultez.</p></div>
+      <div class="field full"><label for="g_pw">Mot de passe <i>*</i></label><div class="pw"><input id="g_pw" type="password" maxlength="200" autocomplete="new-password"><button type="button" data-eye="g_pw" aria-label="Afficher le mot de passe">Afficher</button></div><p class="help">8 caractères minimum.</p></div>
+     </div>
+     <label class="consent"><input type="checkbox" id="g_consent"><span>J'accepte que HMAIG Services utilise ces informations pour gérer mon compte et le suivi de mes réparations. <i style="color:var(--red);font-style:normal">*</i></span></label>
+     <button class="primary" type="submit" id="bSignup">Créer mon compte</button>
+     <p class="fine">Un compte par magasin. Après la création, HMAIG Services relie votre compte à la fiche de votre magasin : vos dossiers déposés à l'atelier apparaissent alors dans votre liste.</p>
+    </form>
+    <form id="fForgot" novalidate hidden>
+     <p class="intro">Indiquez l'adresse e-mail de votre compte : nous vous envoyons un lien pour choisir un nouveau mot de passe.</p>
+     <div class="field full"><label for="o_email">E-mail</label><input id="o_email" type="email" maxlength="160" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
+     <button class="primary" type="submit" id="bForgot">Recevoir le lien</button>
+     <div class="links"><button type="button" class="lnk" id="goLogin">Retour à la connexion</button></div>
+    </form>
+   </div>
+
+   <div id="vSent" class="ok" hidden>
+    <div class="tick" aria-hidden="true">✉</div>
+    <h2 id="seTitle">Vérifiez votre boîte mail</h2>
+    <p id="seText"></p>
+    <div class="row"><button type="button" class="secondary" id="bResend">Renvoyer l'e-mail</button><button type="button" class="secondary" id="seBack">Retour à la connexion</button></div>
+   </div>
+
+   <form id="vReset" novalidate hidden>
+    <p class="intro"><b>Nouveau mot de passe</b><br>Choisissez un mot de passe d'au moins 8 caractères.</p>
+    <div class="grid">
+     <div class="field full"><label for="r_pw">Nouveau mot de passe</label><div class="pw"><input id="r_pw" type="password" maxlength="200" autocomplete="new-password"><button type="button" data-eye="r_pw" aria-label="Afficher le mot de passe">Afficher</button></div></div>
+     <div class="field full"><label for="r_pw2">Confirmez le mot de passe</label><input id="r_pw2" type="password" maxlength="200" autocomplete="new-password"></div>
+    </div>
+    <button class="primary" type="submit" id="bReset">Enregistrer le mot de passe</button>
+   </form>
+
+   <div id="vOther" hidden>
+    <p class="intro">Ce compte n'est pas un compte magasin. Pour suivre vos réparations en tant que magasin partenaire, créez un compte magasin avec une autre adresse e-mail.</p>
+    <button type="button" class="secondary" id="bOut2">Se déconnecter</button>
+   </div>
+
+   <div id="vApp" hidden>
+    <div class="shop"><div><b id="aName">…</b><small id="aMail"></small></div><button type="button" class="secondary" id="bOut">Se déconnecter</button></div>
+    <div class="sub" role="group" aria-label="Espace magasin">
+     <button type="button" id="sList" aria-pressed="true">Mes réparations</button>
+     <button type="button" id="sNew" aria-pressed="false">Nouvelle demande</button>
+    </div>
+
+    <div id="subList">
+     <div class="counts" id="counts"></div>
+     <div class="field find"><label for="s_q" style="position:absolute;left:-9999px">Rechercher</label><input id="s_q" type="text" maxlength="60" placeholder="Référence, n° de série, appareil…" autocomplete="off" spellcheck="false"></div>
+     <div class="notice err" id="aErr" role="alert" hidden></div>
+     <div id="aList"></div>
+     <div class="tools"><p class="upd" id="aUpd"></p><button type="button" class="secondary" id="bRefresh">Actualiser</button></div>
+     <p class="fine">Vous ne voyez pas un dossier déposé directement à l'atelier ? Votre compte doit d'abord être relié à votre magasin par HMAIG Services : contactez-nous et nous le faisons tout de suite.</p>
+    </div>
+
+    <div id="subNew" hidden>
+     <form id="fNew" novalidate>
+      <div class="grid">
+       <div class="field"><label for="n_name">Contact <i>*</i></label><input id="n_name" type="text" maxlength="120" autocomplete="name"></div>
+       <div class="field"><label for="n_phone">Téléphone <i>*</i></label><input id="n_phone" type="tel" inputmode="tel" maxlength="30" autocomplete="tel"></div>
+       <div class="field full"><label for="n_email">E-mail</label><input id="n_email" type="email" maxlength="160" autocomplete="email"></div>
+       <div class="field"><label for="n_dtype">Type d'appareil</label><select id="n_dtype"><option>Smartphone</option><option>Tablette</option><option>Ordinateur portable</option><option>PC fixe</option><option>Console de jeux</option><option>Autre</option></select></div>
+       <div class="field"><label for="n_model">Marque et modèle <i>*</i></label><input id="n_model" type="text" maxlength="120" placeholder="ex. iPhone 13, PS5, Dell Latitude"></div>
+       <div class="field full"><label for="n_serial">N° de série ou IMEI (recommandé)</label><input id="n_serial" type="text" maxlength="60" autocomplete="off"><p class="help">Sur un téléphone, composez <b>*#06#</b> pour afficher l'IMEI.</p></div>
+       <div class="field full"><label for="n_sale">Date de vente au client final</label><input id="n_sale" type="date"><p class="help">Elle sert à vérifier la garantie du magasin.</p></div>
+       <div class="field full"><label for="n_issue">Quelle est la panne ? <i>*</i></label><textarea id="n_issue" maxlength="2000" placeholder="ex. L'écran est cassé et le téléphone ne charge plus depuis une chute."></textarea></div>
+      </div>
+      <div class="notice err" id="nErr" role="alert" hidden style="margin-top:16px"></div>
+      <button class="primary" type="submit" id="bNew">Envoyer la demande</button>
+      <p class="fine">Le nom de votre magasin est ajouté automatiquement. La réparation apparaît dans « Mes réparations » dès l'envoi.</p>
+     </form>
+     <div class="ok" id="nOk" hidden>
+      <div class="tick" aria-hidden="true">✓</div>
+      <h2>Demande envoyée</h2>
+      <p>Merci ! Elle est déjà dans votre liste « Mes réparations ». Nous revenons vers vous rapidement.</p>
+      <div class="codebox"><small>Code de suivi</small><b id="nCode">HM-0000-0000</b></div>
+      <div class="row"><button type="button" class="secondary" id="nList">Voir mes réparations</button><button type="button" class="secondary" id="nAgain">Nouvelle demande</button></div>
+     </div>
+    </div>
+   </div>
+  </section>
  </div>
 </main>
 <footer><div class="wrap">
@@ -219,19 +360,22 @@ const STEPS=['Demande reçue','Dossier ouvert','Diagnostic','Devis','Réparation
 const loadedAt=Date.now();let sending=false,lastCode='';
 
 /* ---------- Onglets ---------- */
-function tab(which){
- const n=which==='new';
- $('#tabNew').setAttribute('aria-selected',n);$('#tabTrack').setAttribute('aria-selected',!n);
- $('#paneNew').hidden=!n;$('#paneTrack').hidden=n;
- if(!n){renderRecent();$('#t_code').focus()}
+const TABS={new:['#tabNew','#paneNew'],track:['#tabTrack','#paneTrack'],shop:['#tabShop','#paneShop']};
+let curTab='new';
+function tab(which,quiet){
+ curTab=which;
+ for(const k in TABS){const on=k===which;$(TABS[k][0]).setAttribute('aria-selected',on);$(TABS[k][1]).hidden=!on}
+ if(which==='track'){renderRecent();$('#t_code').focus()}
+ if(which==='shop'&&!quiet)shopShown();
 }
-$('#tabNew').onclick=()=>tab('new');$('#tabTrack').onclick=()=>tab('track');
+$('#tabNew').onclick=()=>tab('new');$('#tabTrack').onclick=()=>tab('track');$('#tabShop').onclick=()=>tab('shop');
+$('#goShop').onclick=()=>{tab('shop');window.scrollTo({top:0,behavior:'smooth'})};
 
 /* ---------- Type de demandeur ---------- */
 function who(){return document.querySelector('input[name=who]:checked').value}
 function applyWho(){
  const m=who()==='mag';
- $('#rowStore').hidden=!m;$('#rowSale').hidden=!m;
+ $('#rowStore').hidden=!m;$('#rowSale').hidden=!m;$('#magHint').hidden=!m;
  $('#lbName').innerHTML=m?'Nom du contact <i>*</i>':'Nom et prénom <i>*</i>';
  $('#lbEmail').innerHTML=m?'E-mail <i>*</i>':'E-mail';
  $('#lbSerial').textContent=m?'N° de série ou IMEI (recommandé)':'N° de série ou IMEI';
@@ -343,11 +487,391 @@ async function doTrack(raw){
 }
 $('#trackForm').addEventListener('submit',e=>{e.preventDefault();doTrack($('#t_code').value)});
 
+/* ---------- Espace magasin (compte) ---------- */
+const SK='hmaig_client_session';
+const SL={ // libellés côté magasin
+ recue:'Demande reçue',deposee:"Reçu à l'atelier",diagnostic:'Diagnostic en cours',devis:'Devis envoyé',validee:'Devis accepté',
+ piece:"En attente d'une pièce",reparation:'En réparation',controle:'Contrôle final',prete:'Réparé · prêt à retourner',terminee:'Terminé · retourné',refusee:'Dossier clôturé'
+};
+const SSTEPS=['Reçu','Dossier ouvert','Diagnostic','Devis','Réparation','Contrôle','Réparé','Retourné'];
+const WAITING=new Set(['recue','deposee','diagnostic','devis','validee','piece','reparation','controle']);
+const REPAIRED=new Set(['prete','terminee']);
+const bucket=st=>REPAIRED.has(st)?'done':WAITING.has(st)?'wait':'closed';
+const SH={again:false,view:'guest',mode:'login',sess:null,prof:null,list:null,filter:null,q:'',open:new Set(),at:0,loading:false,pendingMail:'',resentAt:0,recovery:null};
+const fmtP=s=>{const t=Date.parse(s);return isNaN(t)?'':new Date(t).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric',timeZone:'Europe/Paris'})};
+const fmtH=t=>new Date(t).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+const mailOk=v=>/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
+const isUid=v=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v||''));
+const redirectTo=()=>encodeURIComponent(location.origin+location.pathname);
+
+async function api(method,path,body,tok){
+ const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),15000);
+ try{
+  return await fetch(CFG.url+path,{method,signal:ctl.signal,headers:{apikey:CFG.key,Authorization:'Bearer '+(tok||CFG.key),'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});
+ }finally{clearTimeout(to)}
+}
+function jwtInfo(t){
+ try{const b=String(t).split('.')[1].replace(/-/g,'+').replace(/_/g,'/');const j=JSON.parse(decodeURIComponent(escape(atob(b+'==='.slice((b.length+3)%4)))));return j&&typeof j==='object'?j:{}}catch(e){return{}}
+}
+function toSess(j){
+ const info=jwtInfo(j.access_token),now=Math.floor(Date.now()/1000);
+ return{access_token:j.access_token,refresh_token:j.refresh_token,expires_at:+j.expires_at||+info.exp||now+(+j.expires_in||3600),uid:info.sub||(j.user&&j.user.id)||'',email:info.email||(j.user&&j.user.email)||''};
+}
+function loadSess(){try{const s=JSON.parse(localStorage.getItem(SK)||'null');return s&&s.access_token&&s.refresh_token&&isUid(s.uid)?s:null}catch(e){return null}}
+function saveSess(s){SH.sess=s;try{s?localStorage.setItem(SK,JSON.stringify(s)):localStorage.removeItem(SK)}catch(e){}}
+
+let refreshing=null;
+async function doRefresh(){
+ const s=SH.sess;if(!s)return false;
+ try{
+  const r=await api('POST','/auth/v1/token?grant_type=refresh_token',{refresh_token:s.refresh_token});
+  if(r.ok){const j=await r.json();if(!j.access_token)return false;saveSess(toSess(j));return true}
+  if(r.status===400||r.status===401||r.status===403){
+   const o=loadSess();   // un autre onglet a peut-être déjà renouvelé la session
+   if(o&&o.refresh_token!==s.refresh_token){SH.sess=o;return true}
+   saveSess(null);return false;
+  }
+  return null;
+ }catch(e){return null}
+}
+function refresh(){if(!refreshing)refreshing=doRefresh().finally(()=>{refreshing=null});return refreshing}
+// Appel avec la session du magasin ; lève {code:'nosess'} si elle est terminée.
+async function authed(method,path,body){
+ if(!SH.sess)throw{code:'nosess'};
+ if(SH.sess.expires_at-60<Date.now()/1000){if(await refresh()===false)throw{code:'nosess'}}
+ if(!SH.sess)throw{code:'nosess'};
+ let r=await api(method,path,body,SH.sess.access_token);
+ if(r.status===401){
+  const ok=await refresh();
+  if(ok===false||!SH.sess)throw{code:'nosess'};
+  if(ok===null)throw{code:'net'};
+  r=await api(method,path,body,SH.sess.access_token);
+  if(r.status===401){saveSess(null);throw{code:'nosess'}}
+ }
+ return r;
+}
+function authErr(status,j){
+ const c=String((j&&j.error_code)||''),m=String((j&&(j.msg||j.message||j.error_description||j.error))||'').toLowerCase();
+ if(c==='invalid_credentials'||m.includes('invalid login'))return'Adresse e-mail ou mot de passe incorrect.';
+ if(c==='email_not_confirmed'||m.includes('not confirmed'))return'NOT_CONFIRMED';
+ if(c==='user_already_exists'||m.includes('already registered'))return'EXISTS';
+ if(c==='weak_password'||m.includes('password should'))return'Mot de passe trop faible : utilisez au moins 8 caractères.';
+ if(c==='same_password'||m.includes('different from the old'))return"Le nouveau mot de passe doit être différent de l'ancien.";
+ if(status===429||c.includes('rate_limit')||m.includes('rate limit'))return'Trop de tentatives. Patientez quelques minutes puis réessayez.';
+ if(c==='signup_disabled')return'Les créations de compte sont fermées pour le moment. Contactez-nous.';
+ if(m.includes('database error'))return'Vérifiez le nom du magasin, le contact et le téléphone, puis réessayez.';
+ if(status>=500)return'Le service est momentanément indisponible. Réessayez dans quelques minutes.';
+ return'Opération impossible. Vérifiez les informations saisies puis réessayez.';
+}
+const NETERR='Connexion impossible pour le moment. Vérifiez votre connexion internet puis réessayez.';
+function shopMsg(t,err){const n=$('#sNote'),e=$('#sErr');n.hidden=err||!t;e.hidden=!err||!t;(err?e:n).textContent=t||'';if(!t){n.hidden=true;e.hidden=true}}
+const shopErr=t=>shopMsg(t,true),shopNote=t=>shopMsg(t,false);
+
+function showView(v){
+ SH.view=v;
+ for(const [k,id] of [['guest','#vGuest'],['sent','#vSent'],['reset','#vReset'],['other','#vOther'],['app','#vApp']])$(id).hidden=k!==v;
+}
+function guestMode(m){
+ SH.mode=m;
+ $('#fLogin').hidden=m!=='login';$('#fSignup').hidden=m!=='signup';$('#fForgot').hidden=m!=='forgot';
+ $('.sub[aria-label^="Connexion"]').hidden=m==='forgot';
+ $('#mLogin').setAttribute('aria-pressed',m==='login');$('#mSignup').setAttribute('aria-pressed',m==='signup');
+ shopMsg('');
+}
+$('#mLogin').onclick=$('#goLogin').onclick=()=>guestMode('login');
+$('#mSignup').onclick=$('#goSignup').onclick=()=>guestMode('signup');
+$('#goForgot').onclick=()=>{$('#o_email').value=$('#l_email').value.trim();guestMode('forgot')};
+document.querySelectorAll('[data-eye]').forEach(b=>b.onclick=()=>{
+ const i=$('#'+b.dataset.eye),h=i.type==='password';i.type=h?'text':'password';b.textContent=h?'Masquer':'Afficher';
+});
+
+function showSent(kind,mail){
+ SH.pendingMail=mail;
+ const T={
+  signup:['Vérifiez votre boîte mail',`Un e-mail de confirmation a été envoyé à ${mail}. Cliquez sur le lien qu'il contient pour activer votre compte. Pensez à regarder dans vos courriers indésirables. Si vous aviez déjà un compte avec cette adresse, connectez-vous ou utilisez « Mot de passe oublié ».`],
+  notconf:['Adresse e-mail à confirmer',`Votre adresse ${mail} n'est pas encore confirmée. Ouvrez l'e-mail que nous vous avons envoyé et cliquez sur le lien, ou demandez-en un nouveau ci-dessous.`],
+  recover:['E-mail envoyé',`Si un compte existe avec l'adresse ${mail}, vous allez recevoir un e-mail avec un lien pour choisir un nouveau mot de passe. Il est valable une heure. Pensez à regarder dans vos courriers indésirables.`]
+ }[kind];
+ $('#seTitle').textContent=T[0];$('#seText').textContent=T[1];
+ $('#bResend').hidden=kind==='recover';$('#bResend').disabled=false;$('#bResend').textContent="Renvoyer l'e-mail";
+ shopMsg('');showView('sent');window.scrollTo({top:0,behavior:'smooth'});
+}
+$('#seBack').onclick=()=>{showView('guest');guestMode('login')};
+$('#bResend').onclick=async()=>{
+ const b=$('#bResend');b.disabled=true;
+ try{
+  const r=await api('POST','/auth/v1/resend?redirect_to='+redirectTo(),{type:'signup',email:SH.pendingMail});
+  if(r.ok){b.textContent='E-mail renvoyé ✓';setTimeout(()=>{b.disabled=false;b.textContent="Renvoyer l'e-mail"},60000)}
+  else{const j=await r.json().catch(()=>({}));shopErr(authErr(r.status,j));b.disabled=false}
+ }catch(e){shopErr(NETERR);b.disabled=false}
+};
+
+/* Connexion */
+$('#fLogin').addEventListener('submit',async e=>{
+ e.preventDefault();shopMsg('');
+ const email=$('#l_email').value.trim().toLowerCase(),pw=$('#l_pw').value;
+ if(!mailOk(email)){shopErr('Indiquez votre adresse e-mail.');return $('#l_email').focus()}
+ if(!pw){shopErr('Indiquez votre mot de passe.');return $('#l_pw').focus()}
+ if(!CFG.url||!CFG.key)return shopErr("L'espace magasin n'est pas disponible pour le moment.");
+ const b=$('#bLogin');b.disabled=true;b.textContent='Connexion…';
+ try{
+  const r=await api('POST','/auth/v1/token?grant_type=password',{email,password:pw});
+  const j=await r.json().catch(()=>({}));
+  if(r.ok&&j.access_token){saveSess(toSess(j));$('#l_pw').value='';SH.prof=null;SH.list=null;await enterApp()}
+  else{
+   const m=authErr(r.status,j);
+   if(m==='NOT_CONFIRMED')showSent('notconf',email);
+   else shopErr(m==='EXISTS'?'Opération impossible.':m);
+  }
+ }catch(x){shopErr(NETERR)}
+ b.disabled=false;b.textContent='Me connecter';
+});
+
+/* Création de compte */
+$('#fSignup').addEventListener('submit',async e=>{
+ e.preventDefault();shopMsg('');
+ const v=id=>$('#'+id).value.trim(),nom=v('g_nom'),contact=v('g_contact'),tel=v('g_tel'),email=v('g_email').toLowerCase(),pw=$('#g_pw').value;
+ const bad=(t,id)=>{shopErr(t);$('#'+id).focus()};
+ if(nom.length<2)return bad('Indiquez le nom du magasin.','g_nom');
+ if(contact.length<2)return bad('Indiquez le nom du contact.','g_contact');
+ if(tel.replace(/\D/g,'').length<6)return bad('Indiquez un numéro de téléphone valide.','g_tel');
+ if(!mailOk(email))return bad('Indiquez une adresse e-mail valide.','g_email');
+ if(pw.length<8)return bad('Le mot de passe doit contenir au moins 8 caractères.','g_pw');
+ if(!$('#g_consent').checked)return bad("Cochez la case d'acceptation pour créer le compte.",'g_consent');
+ if(!CFG.url||!CFG.key)return shopErr("L'espace magasin n'est pas disponible pour le moment.");
+ const b=$('#bSignup');b.disabled=true;b.textContent='Création…';
+ try{
+  const r=await api('POST','/auth/v1/signup?redirect_to='+redirectTo(),{email,password:pw,data:{type:'magasin',nom,contact,telephone:tel}});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok){
+   const m=authErr(r.status,j);
+   if(m==='EXISTS'){guestMode('login');$('#l_email').value=email;shopErr('Un compte existe déjà avec cette adresse. Connectez-vous, ou utilisez « Mot de passe oublié ».')}
+   else shopErr(m==='NOT_CONFIRMED'?'Opération impossible.':m);
+  }else if(j.access_token){saveSess(toSess(j));SH.prof=null;SH.list=null;$('#g_pw').value='';await enterApp('Compte créé. Bienvenue !')}
+  else{$('#g_pw').value='';showSent('signup',email)}
+ }catch(x){shopErr(NETERR)}
+ b.disabled=false;b.textContent='Créer mon compte';
+});
+
+/* Mot de passe oublié */
+$('#fForgot').addEventListener('submit',async e=>{
+ e.preventDefault();shopMsg('');
+ const email=$('#o_email').value.trim().toLowerCase();
+ if(!mailOk(email)){shopErr('Indiquez votre adresse e-mail.');return $('#o_email').focus()}
+ const b=$('#bForgot');b.disabled=true;b.textContent='Envoi…';
+ try{
+  const r=await api('POST','/auth/v1/recover?redirect_to='+redirectTo(),{email});
+  if(r.ok)showSent('recover',email);
+  else{const j=await r.json().catch(()=>({}));const m=authErr(r.status,j);shopErr(m==='EXISTS'||m==='NOT_CONFIRMED'?'Opération impossible.':m)}
+ }catch(x){shopErr(NETERR)}
+ b.disabled=false;b.textContent='Recevoir le lien';
+});
+
+/* Nouveau mot de passe (lien reçu par e-mail) */
+$('#vReset').addEventListener('submit',async e=>{
+ e.preventDefault();shopMsg('');
+ const a=$('#r_pw').value,c=$('#r_pw2').value;
+ if(a.length<8){shopErr('Le mot de passe doit contenir au moins 8 caractères.');return $('#r_pw').focus()}
+ if(a!==c){shopErr('Les deux mots de passe ne sont pas identiques.');return $('#r_pw2').focus()}
+ const rs=SH.recovery;if(!rs){shopErr('Ce lien n\'est plus valable. Redemandez un lien depuis « Mot de passe oublié ».');return showView('guest')}
+ const b=$('#bReset');b.disabled=true;b.textContent='Enregistrement…';
+ try{
+  const r=await api('PUT','/auth/v1/user',{password:a},rs.access_token);
+  const j=await r.json().catch(()=>({}));
+  if(r.ok){SH.recovery=null;$('#r_pw').value=$('#r_pw2').value='';saveSess(rs);SH.prof=null;SH.list=null;await enterApp('Mot de passe modifié.')}
+  else shopErr(authErr(r.status,j));
+ }catch(x){shopErr(NETERR)}
+ b.disabled=false;b.textContent='Enregistrer le mot de passe';
+});
+
+/* Déconnexion */
+function logout(msg){
+ const s=SH.sess;saveSess(null);SH.prof=null;SH.list=null;SH.filter=null;SH.q='';SH.at=0;SH.open.clear();
+ // rien du magasin précédent ne doit rester dans la page (ordinateur partagé)
+ for(const id of['s_q','n_name','n_phone','n_email','n_model','n_serial','n_sale','n_issue'])$('#'+id).value='';
+ for(const id of['aList','counts','aUpd','aName','aMail'])$('#'+id).textContent='';
+ showErr($('#aErr'),'');showErr($('#nErr'),'');$('#nOk').hidden=true;$('#fNew').hidden=false;subTab('list');
+ if(s){api('POST','/auth/v1/logout',undefined,s.access_token).catch(()=>{})}
+ showView('guest');guestMode('login');if(msg)shopErr(msg);
+}
+$('#bOut').onclick=$('#bOut2').onclick=()=>{logout();shopNote('Vous êtes déconnecté.')};
+
+/* Entrée dans l'espace */
+async function enterApp(note){
+ shopMsg('');
+ if(note){shopNote(note);setTimeout(()=>{if($('#sNote').textContent===note)shopMsg('')},9000)}
+ showView('app');subTab('list');
+ if(!SH.prof){
+  $('#aName').textContent='Chargement…';$('#aMail').textContent='';
+  try{
+   const r=await authed('GET','/rest/v1/magasins?select=nom,contact,telephone,email&user_id=eq.'+encodeURIComponent(SH.sess.uid));
+   if(!r.ok)throw{code:'http'};
+   const rows=await r.json();SH.prof=Array.isArray(rows)&&rows[0]?rows[0]:false;
+  }catch(e){
+   if(e&&e.code==='nosess')return logout('Votre session a expiré. Reconnectez-vous.');
+   showView('guest');guestMode('login');return shopErr("Impossible d'ouvrir votre espace pour le moment. Réessayez dans quelques minutes.");
+  }
+ }
+ if(!SH.prof){showView('other');return}
+ $('#aName').textContent=SH.prof.nom;$('#aMail').textContent=SH.sess.email||SH.prof.email||'';
+ fillNew();
+ loadList(false);
+}
+
+/* Liste des réparations */
+async function loadList(silent){
+ if(!SH.sess)return;
+ if(SH.loading){SH.again=true;return}
+ SH.loading=true;if(!silent&&!SH.list)$('#aList').innerHTML='<p class="empty">Chargement de vos réparations…</p>';
+ $('#bRefresh').disabled=true;$('#aErr').hidden=true;
+ try{
+  const r=await authed('POST','/rest/v1/rpc/mes_reparations',{});
+  if(!r.ok)throw{code:'http'};
+  const rows=await r.json();if(!Array.isArray(rows))throw{code:'http'};
+  mergeRows(rows);
+  rows.sort((a,b)=>(Date.parse(b.recu_le)||0)-(Date.parse(a.recu_le)||0)||(Date.parse(b.maj_le)||0)-(Date.parse(a.maj_le)||0));
+  SH.list=rows;SH.at=Date.now();
+  if(!SH.filter)SH.filter=rows.some(x=>bucket(x.statut)==='wait')?'wait':'all';
+ }catch(e){
+  SH.loading=false;$('#bRefresh').disabled=false;
+  if(e&&e.code==='nosess')return logout('Votre session a expiré. Reconnectez-vous.');
+  if(SH.list){showErr($('#aErr'),"Impossible d'actualiser pour le moment : la liste affichée date de "+fmtH(SH.at)+'.')}
+  else{$('#aList').innerHTML='';showErr($('#aErr'),"Impossible de charger vos réparations pour le moment. Réessayez avec « Actualiser ».")}
+  return renderList();
+ }
+ SH.loading=false;$('#bRefresh').disabled=false;renderList();
+ if(SH.again){SH.again=false;loadList(true)}
+}
+// Une demande en ligne devenue SAV dans l'atelier existe en double (même référence) : on garde une seule ligne, la plus complète.
+function mergeRows(rows){
+ const at=new Map();
+ for(const x of rows)if(x.origine==='atelier')at.set(x.ref,x);
+ for(let i=rows.length-1;i>=0;i--){
+  const x=rows[i],a=x.origine==='demande'&&at.get(x.ref);
+  if(a){a.code=a.code||x.code;a.message=a.message||x.message;rows.splice(i,1)}
+ }
+}
+const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+function renderList(){
+ const L=SH.list;if(!L){$('#counts').innerHTML='';return}
+ const c={wait:0,done:0,all:L.length};for(const x of L){const b=bucket(x.statut);if(b==='wait')c.wait++;else if(b==='done')c.done++}
+ $('#counts').innerHTML=[['wait','En attente'],['done','Réparées'],['all','Toutes']].map(([k,l])=>`<button type="button" data-f="${k}" aria-pressed="${SH.filter===k}"><b>${c[k]}</b><span>${l}</span></button>`).join('');
+ const q=norm(SH.q);
+ const rows=L.filter(x=>(SH.filter==='all'||bucket(x.statut)===SH.filter)&&(!q||norm([x.ref,x.code,x.serie,x.appareil].join(' ')).includes(q)));
+ let h=rows.map(repHtml).join('');
+ if(!rows.length){
+  h=!L.length?`<p class="empty">Aucune réparation pour le moment.<br>Vos demandes envoyées ici apparaissent dans cette liste, ainsi que les dossiers de votre magasin ouverts à l'atelier.</p>`
+   :q?`<p class="empty">Aucun résultat pour « ${esc(SH.q)} ».</p>`
+   :SH.filter==='wait'?'<p class="empty">Aucune réparation en attente. Tout est à jour 👍</p>'
+   :'<p class="empty">Aucune réparation dans cette catégorie.</p>';
+ }
+ $('#aList').innerHTML=h;
+ $('#aUpd').textContent=SH.at?'Mis à jour à '+fmtH(SH.at):'';
+}
+function repHtml(x){
+ const st=SL[x.statut]?x.statut:'recue',b=bucket(st),k=x.origine+'|'+x.ref,open=SH.open.has(k);
+ const cur=STATUS[st].i;
+ const meta=[x.serie?'N° de série '+esc(x.serie):'',x.recu_le?'Reçu le '+esc(fmtP(x.recu_le)):''].filter(Boolean).join(' · ');
+ const row=(l,v)=>v?`<dt>${l}</dt><dd>${esc(v)}</dd>`:'';
+ const steps=cur<0?'':`<ul class="steps">${SSTEPS.map((l,i)=>`<li class="${i<cur?'done':i===cur?'cur':''}"><i>${i<cur?'✓':''}</i>${esc(l)}</li>`).join('')}</ul>`;
+ const det=open?`<div class="rd"><dl>${row('Appareil',x.appareil)}${row('N° de série',x.serie)}${row('Panne signalée',x.panne)}${row('Reçu le',fmtP(x.recu_le))}${row('Mis à jour le',fmtP(x.maj_le))}${x.code&&x.code!==x.ref?row('Code de suivi',x.code):''}${row("Décision de l'atelier",x.decision)}${row('Information',x.info)}${row("Message de l'atelier",x.message)}</dl>${steps}</div>`:'';
+ return `<div class="rep"><button type="button" class="rh" data-k="${esc(k)}" aria-expanded="${open}"><span class="r1"><span><span class="ref">${esc(x.ref)}</span><span class="dev">${esc(x.appareil||'Appareil')}</span></span><span class="chip ${b==='done'?'good':b==='closed'?'grey':''}">${esc(SL[st])}</span></span>${meta?`<span class="meta">${meta}</span>`:''}</button>${det}</div>`;
+}
+$('#counts').addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;SH.filter=b.dataset.f;renderList()});
+$('#aList').addEventListener('click',e=>{
+ const b=e.target.closest('[data-k]');if(!b)return;
+ const k=b.dataset.k;SH.open.has(k)?SH.open.delete(k):SH.open.add(k);renderList();
+});
+$('#s_q').addEventListener('input',e=>{SH.q=e.target.value;renderList()});
+$('#bRefresh').onclick=()=>loadList(false);
+
+/* Sous-onglets : liste / nouvelle demande */
+function subTab(w){
+ const l=w==='list';
+ $('#sList').setAttribute('aria-pressed',l);$('#sNew').setAttribute('aria-pressed',!l);
+ $('#subList').hidden=!l;$('#subNew').hidden=l;
+}
+$('#sList').onclick=()=>{subTab('list');if(Date.now()-SH.at>20000)loadList(true)};
+$('#sNew').onclick=()=>{subTab('new')};
+
+/* Nouvelle demande depuis le compte */
+function fillNew(){
+ const p=SH.prof||{};
+ if(!$('#n_name').value)$('#n_name').value=p.contact||'';
+ if(!$('#n_phone').value)$('#n_phone').value=p.telephone||'';
+ if(!$('#n_email').value)$('#n_email').value=(SH.sess&&SH.sess.email)||p.email||'';
+}
+let sendingNew=false;
+$('#fNew').addEventListener('submit',async e=>{
+ e.preventDefault();if(sendingNew)return;
+ const err=$('#nErr');showErr(err,'');
+ const v=id=>$('#'+id).value.trim(),name=v('n_name'),phone=v('n_phone'),email=v('n_email'),model=v('n_model'),issue=v('n_issue');
+ const bad=(t,id)=>{showErr(err,t);$('#'+id).focus()};
+ if(name.length<2)return bad('Indiquez le nom du contact.','n_name');
+ if(phone.replace(/\D/g,'').length<6)return bad('Indiquez un numéro de téléphone valide.','n_phone');
+ if(email&&!mailOk(email))return bad('Indiquez une adresse e-mail valide.','n_email');
+ if(model.length<2)return bad("Indiquez la marque et le modèle de l'appareil.",'n_model');
+ if(issue.length<5)return bad('Décrivez la panne en quelques mots.','n_issue');
+ sendingNew=true;const btn=$('#bNew');btn.disabled=true;btn.textContent='Envoi en cours…';
+ let ok=false,code='',why='';
+ for(let k=0;k<3&&!ok;k++){
+  code=makeCode();
+  try{
+   const r=await authed('POST','/rest/v1/rpc/deposer_demande_magasin',{p_code:code,p_name:name,p_phone:phone,p_email:email||null,p_device_type:$('#n_dtype').value,p_model:model,p_serial:v('n_serial')||null,p_sale_date:v('n_sale')||null,p_issue:issue});
+   if(r.ok)ok=true;else if(r.status===409)continue;else{why=r.status===403?'denied':'';break}
+  }catch(x){why=x&&x.code==='nosess'?'nosess':'';break}
+ }
+ sendingNew=false;btn.disabled=false;btn.textContent='Envoyer la demande';
+ if(why==='nosess')return logout('Votre session a expiré. Reconnectez-vous : votre demande n\'a pas été envoyée.');
+ if(!ok)return showErr(err,why==='denied'?"Ce compte ne peut pas envoyer de demande. Contactez-nous.":"Impossible d'envoyer la demande pour le moment. Réessayez dans quelques minutes ou contactez-nous directement.");
+ addCode(code,model);alertMail(code,'sav',model);
+ $('#nCode').textContent=code;$('#fNew').hidden=true;$('#nOk').hidden=false;window.scrollTo({top:0,behavior:'smooth'});
+ loadList(true);
+});
+$('#nList').onclick=()=>{subTab('list')};
+$('#nAgain').onclick=()=>{
+ for(const id of['n_model','n_serial','n_sale','n_issue'])$('#'+id).value='';
+ showErr($('#nErr'),'');$('#nOk').hidden=true;$('#fNew').hidden=false;window.scrollTo({top:0});
+};
+
+/* Affichage de l'onglet + actualisation automatique */
+function shopShown(){
+ if(SH.view==='guest'&&SH.sess)enterApp();
+ else if(SH.view==='app'&&Date.now()-SH.at>30000)loadList(true);
+}
+setInterval(()=>{if(curTab==='shop'&&SH.view==='app'&&!document.hidden&&Date.now()-SH.at>60000)loadList(true)},15000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&curTab==='shop'&&SH.view==='app'&&Date.now()-SH.at>30000)loadList(true)});
+
+/* Lien reçu par e-mail (confirmation d'adresse, nouveau mot de passe) */
+function readHash(){
+ const h=location.hash.replace(/^#/,'');if(!h)return null;
+ const p=new URLSearchParams(h);
+ if(!p.get('access_token')&&!p.get('error')&&!p.get('error_code'))return null;
+ try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}
+ return p;
+}
+function handleHash(p){
+ tab('shop',true);
+ if(!p.get('access_token')){
+  showView('guest');guestMode('login');
+  return shopErr("Ce lien n'est plus valable : il a expiré ou a déjà servi. Connectez-vous, ou utilisez « Mot de passe oublié » pour en recevoir un nouveau.");
+ }
+ const s=toSess({access_token:p.get('access_token'),refresh_token:p.get('refresh_token')||'',expires_in:p.get('expires_in')});
+ if(!isUid(s.uid)){showView('guest');guestMode('login');return shopErr("Ce lien n'est plus valable.")}
+ if(p.get('type')==='recovery'){SH.recovery=s;showView('reset');return}
+ saveSess(s);enterApp(p.get('type')==='signup'?'Adresse confirmée. Bienvenue !':'');
+}
+
 /* ---------- Démarrage ---------- */
 applyWho();
 if(!CFG.url||!CFG.key)$('#unavail').hidden=false;
-const qs=new URLSearchParams(location.search);
-if(qs.get('suivi')){tab('track');$('#t_code').value=qs.get('suivi');doTrack(qs.get('suivi'))}
+SH.sess=loadSess();
+{
+ const qs=new URLSearchParams(location.search),hp=readHash();
+ if(hp)handleHash(hp);
+ else if(qs.get('suivi')){tab('track');$('#t_code').value=qs.get('suivi');doTrack(qs.get('suivi'))}
+ else if(SH.sess||qs.has('magasin'))tab('shop');
+}
 </script>
 </body>
 </html>

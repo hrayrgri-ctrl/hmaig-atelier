@@ -6,6 +6,7 @@ Outil de gestion de l'atelier (réparations, SAV magasins, devis et factures, st
 - `client/index.html` — la page où les clients envoient leur demande et suivent leur réparation (https://atelier.hmaigservices.fr/client/)
 - `supabase/schema.sql` — la base de données des demandes (à exécuter une fois dans Supabase, en remplaçant `%%OWNER_EMAIL%%`)
 - `supabase/sync.sql` — la synchronisation des données de l'atelier entre appareils (à exécuter ensuite, même remplacement)
+- `supabase/stores.sql` — les comptes des magasins partenaires et leur espace « Mes réparations » (à exécuter après `sync.sql`, **avant** de publier la version de l'outil qui l'utilise)
 - `.github/workflows/keepalive.yml` — évite la mise en pause de la base gratuite
 
 Aucun secret dans ce dépôt : la clé publique Supabase est faite pour être visible, la sécurité est assurée par les règles de la base.
@@ -32,6 +33,16 @@ L'onglet « Compte & synchro » enregistre en ligne les clients, appareils, rép
 - **Sauvegardes automatiques** : la table `atelier_historique` conserve les 60 dernières versions (au plus une toutes les 30 minutes, plus une à chaque remplacement volontaire ou baisse brutale du volume de données). L'onglet permet de restaurer l'une d'elles.
 - **Sécurité** : les deux tables ne sont lisibles que par le compte de l'atelier (même règle que les demandes) ; personne d'autre, visiteurs compris, ne peut les lire ni les écrire.
 - **Hors connexion** : les modifications restent sur l'appareil (marquées « en attente ») et partent dès le retour du réseau.
+
+## Comptes magasins (espace « Mes réparations »)
+
+Chaque magasin partenaire crée son propre compte (e-mail + mot de passe) dans l'onglet « Espace magasin » de la page client. Il y retrouve **toutes** ses réparations : celles qu'il a envoyées en ligne et celles que l'atelier a saisies pour lui, avec leur statut (en attente, réparées) ; il peut aussi envoyer une demande de SAV sans ressaisir ses coordonnées.
+
+- **Création du compte** : l'e-mail de confirmation et le mot de passe oublié passent par l'envoi d'e-mails de Supabase Auth, branché sur l'adresse Gmail de l'atelier (SMTP personnalisé, avec un « mot de passe d'application » Google). Ce mot de passe est saisi uniquement dans Supabase : il n'est jamais dans ce dépôt.
+- **Liaison par l'atelier** : un compte qui vient d'être créé ne voit que ses propres demandes en ligne. Dans « Demandes clients » → « Comptes magasins », l'atelier relie le compte à la fiche du magasin en un clic (la fiche du même nom est proposée, ou créée). Le nom saisi à l'inscription n'est jamais relié automatiquement : n'importe qui peut taper un nom de magasin, c'est l'atelier qui vérifie.
+- **Publication** : une fois relié, les SAV de la fiche sont publiés dans l'espace du magasin (fonction `synchroniser_sav_magasin`, réservée au compte atelier) : référence, appareil, n° de série, panne, statut, décision et échange. Jamais les notes, historiques, devis ni factures. « Retirer l'accès » efface aussitôt ces lignes de son espace.
+- **Sécurité** : un magasin n'accède à aucune table : il passe par `mes_reparations()` (ses lignes uniquement) et `deposer_demande_magasin()` ; les visiteurs non connectés n'ont accès à aucune de ces fonctions.
+- Les anciennes demandes envoyées sans compte continuent de fonctionner (formulaire public et suivi par code).
 
 ## Devis : main d'œuvre obligatoire
 

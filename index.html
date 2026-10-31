@@ -476,8 +476,8 @@ function demoDb(){
  return D;
 }
 let db=load();
-let storageWarned=false,cloudHook=null; /* cloudHook : branché par la synchronisation en ligne (h_sync.js) */
-function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){if(!storageWarned){storageWarned=true;toast('Stockage du navigateur indisponible : exportez vos données (Paramètres)')}}if(cloudHook){try{cloudHook()}catch(e){console.warn('sync',e)}}}
+let storageWarned=false,cloudHook=null,mirrorHook=null; /* cloudHook : branché par la synchronisation en ligne (h_sync.js) */
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){if(!storageWarned){storageWarned=true;toast('Stockage du navigateur indisponible : exportez vos données (Paramètres)')}}if(cloudHook){try{cloudHook()}catch(e){console.warn('sync',e)}}if(mirrorHook){try{mirrorHook()}catch(e){console.warn('shops',e)}}}
 
 /* ============ Accès rapides ============ */
 const cl=id=>db.clients.find(c=>c.id===id)||{id:'',name:'—',phone:'',email:'',kind:'particulier',address:''};
@@ -628,13 +628,14 @@ function alerts(){
   if(s.status==='Reçu')add({key:'sav:'+s.id,lv:'info',ic:'⇄',title:'SAV à qualifier',text:nm+' · reçu le '+fmtDL(s.received),kind:'sav',sid:s.id});
   if(s.status==='Prêt à retourner')add({key:'savpret:'+s.id,lv:'ok',ic:'✓',title:'SAV prêt à retourner',text:nm+' · prévenir le magasin',kind:'savpret',sid:s.id})});
  INBOX.list.filter(d=>d.status==='nouvelle').forEach(d=>add({key:'dem:'+d.id,lv:'info',ic:'✉',title:d.kind==='sav'?'Nouvelle demande SAV en ligne':'Nouvelle demande en ligne',text:(d.kind==='sav'?d.store:d.name)+' — '+d.model+' · reçue '+dWhen(d.created_at),kind:'demande',did:d.id}));
+ if(SHOPS.loaded)shopsToLink().forEach(a=>add({key:'cpt:'+a.user_id,lv:'info',ic:'⌂',title:'Nouveau compte magasin',text:a.nom+' · à relier à sa fiche dans « Demandes clients »',kind:'compte',acc:a.user_id}));
  const o={danger:0,warn:1,ok:2,info:3};
  return A.sort((a,b)=>o[a.lv]-o[b.lv]);
 }
 function alertHTML(a){
- return `<div class="al ${a.lv}"><div class="ic">${a.ic}</div><div class="tx"><b>${esc(a.title)}</b><span>${esc(a.text)}</span><div class="ac"><button class="secondary small" onclick="openAlert('${a.key}')">Ouvrir</button>${a.kind!=='stock'&&a.kind!=='demande'?`<button class="secondary small" onclick="msgByKey('${a.key}')">✉ Message</button>`:''}<button class="secondary small" onclick="dismissAlert('${a.key}')">✓ Traité</button></div></div></div>`;
+ return `<div class="al ${a.lv}"><div class="ic">${a.ic}</div><div class="tx"><b>${esc(a.title)}</b><span>${esc(a.text)}</span><div class="ac"><button class="secondary small" onclick="openAlert('${a.key}')">Ouvrir</button>${a.kind!=='stock'&&a.kind!=='demande'&&a.kind!=='compte'?`<button class="secondary small" onclick="msgByKey('${a.key}')">✉ Message</button>`:''}<button class="secondary small" onclick="dismissAlert('${a.key}')">✓ Traité</button></div></div></div>`;
 }
-function openAlert(key){const a=alerts().find(x=>x.key===key);if(!a)return;if(a.rid)openRepair(a.rid);else if(a.sid)openSav(a.sid);else if(a.pid)openPartForm(a.pid);else if(a.did)openDemande(a.did)}
+function openAlert(key){const a=alerts().find(x=>x.key===key);if(!a)return;if(a.rid)openRepair(a.rid);else if(a.sid)openSav(a.sid);else if(a.pid)openPartForm(a.pid);else if(a.did)openDemande(a.did);else if(a.acc)go('inbox')}
 function dismissAlert(key){db.dismissed[key]=today();save();render()}
 function vAlerts(){
  const A=alerts(),nd=Object.keys(db.dismissed).length;
@@ -795,8 +796,9 @@ SB.on=!!(SB.url&&SB.key);
 const QR_SVG='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMyAzMyIgc2hhcGUtcmVuZGVyaW5nPSJjcmlzcEVkZ2VzIj48cGF0aCBmaWxsPSIjMTUxODFhIiBkPSJNMiAyaDd2MWgtN3pNMTIgMmgxdjFoLTF6TTE0IDJoMXYxaC0xek0xOCAyaDF2MWgtMXpNMjAgMmgzdjFoLTN6TTI0IDJoN3YxaC03ek0yIDNoMXYxaC0xek04IDNoMXYxaC0xek0xMCAzaDF2MWgtMXpNMTIgM2gxdjFoLTF6TTE2IDNoM3YxaC0zek0yMiAzaDF2MWgtMXpNMjQgM2gxdjFoLTF6TTMwIDNoMXYxaC0xek0yIDRoMXYxaC0xek00IDRoM3YxaC0zek04IDRoMXYxaC0xek0xNCA0aDF2MWgtMXpNMTYgNGgydjFoLTJ6TTIxIDRoMXYxaC0xek0yNCA0aDF2MWgtMXpNMjYgNGgzdjFoLTN6TTMwIDRoMXYxaC0xek0yIDVoMXYxaC0xek00IDVoM3YxaC0zek04IDVoMXYxaC0xek0xMCA1aDN2MWgtM3pNMTQgNWgzdjFoLTN6TTE5IDVoMXYxaC0xek0yMiA1aDF2MWgtMXpNMjQgNWgxdjFoLTF6TTI2IDVoM3YxaC0zek0zMCA1aDF2MWgtMXpNMiA2aDF2MWgtMXpNNCA2aDN2MWgtM3pNOCA2aDF2MWgtMXpNMTEgNmgxdjFoLTF6TTE1IDZoMXYxaC0xek0xOCA2aDF2MWgtMXpNMjEgNmgydjFoLTJ6TTI0IDZoMXYxaC0xek0yNiA2aDN2MWgtM3pNMzAgNmgxdjFoLTF6TTIgN2gxdjFoLTF6TTggN2gxdjFoLTF6TTEwIDdoMnYxaC0yek0xMyA3aDV2MWgtNXpNMTkgN2gydjFoLTJ6TTIyIDdoMXYxaC0xek0yNCA3aDF2MWgtMXpNMzAgN2gxdjFoLTF6TTIgOGg3djFoLTd6TTEwIDhoMXYxaC0xek0xMiA4aDF2MWgtMXpNMTQgOGgxdjFoLTF6TTE2IDhoMXYxaC0xek0xOCA4aDF2MWgtMXpNMjAgOGgxdjFoLTF6TTIyIDhoMXYxaC0xek0yNCA4aDd2MWgtN3pNMTEgOWgzdjFoLTN6TTE3IDloMnYxaC0yek0yMCA5aDN2MWgtM3pNMiAxMGg1djFoLTV6TTggMTBoNHYxaC00ek0xMyAxMGgxdjFoLTF6TTE1IDEwaDJ2MWgtMnpNMTkgMTBoMXYxaC0xek0yMyAxMGgxdjFoLTF6TTI1IDEwaDF2MWgtMXpNMjcgMTBoMXYxaC0xek0yOSAxMGgxdjFoLTF6TTIgMTFoMnYxaC0yek02IDExaDJ2MWgtMnpNOSAxMWgxdjFoLTF6TTEyIDExaDF2MWgtMXpNMTQgMTFoMXYxaC0xek0xNiAxMWgxdjFoLTF6TTE4IDExaDF2MWgtMXpNMjEgMTFoNnYxaC02ek0zMCAxMWgxdjFoLTF6TTQgMTJoMXYxaC0xek02IDEyaDN2MWgtM3pNMTIgMTJoMXYxaC0xek0xNiAxMmg0djFoLTR6TTIyIDEyaDN2MWgtM3pNMjYgMTJoMXYxaC0xek0zIDEzaDF2MWgtMXpNNyAxM2gxdjFoLTF6TTEwIDEzaDF2MWgtMXpNMTQgMTNoMXYxaC0xek0yMCAxM2gxdjFoLTF6TTI1IDEzaDF2MWgtMXpNMjcgMTNoMXYxaC0xek0yOSAxM2gxdjFoLTF6TTYgMTRoM3YxaC0zek0xMSAxNGgydjFoLTJ6TTE0IDE0aDJ2MWgtMnpNMTcgMTRoMXYxaC0xek0xOSAxNGgxdjFoLTF6TTIxIDE0aDF2MWgtMXpNMjcgMTRoMnYxaC0yek0zIDE1aDJ2MWgtMnpNNiAxNWgxdjFoLTF6TTkgMTVoMnYxaC0yek0xNSAxNWgxdjFoLTF6TTE4IDE1aDl2MWgtOXpNMzAgMTVoMXYxaC0xek00IDE2aDF2MWgtMXpNNyAxNmgydjFoLTJ6TTEyIDE2aDd2MWgtN3pNMjAgMTZoMXYxaC0xek0yMiAxNmgxdjFoLTF6TTI1IDE2aDR2MWgtNHpNMiAxN2gydjFoLTJ6TTcgMTdoMXYxaC0xek05IDE3aDN2MWgtM3pNMTMgMTdoMXYxaC0xek0xNiAxN2gxdjFoLTF6TTE4IDE3aDF2MWgtMXpNMjUgMTdoMnYxaC0yek0yOSAxN2gxdjFoLTF6TTIgMThoMXYxaC0xek00IDE4aDJ2MWgtMnpNOCAxOGgzdjFoLTN6TTEzIDE4aDF2MWgtMXpNMTkgMThoMXYxaC0xek0yNyAxOGgydjFoLTJ6TTIgMTloM3YxaC0zek03IDE5aDF2MWgtMXpNMTQgMTloMnYxaC0yek0yMCAxOWgzdjFoLTN6TTI0IDE5aDN2MWgtM3pNMjggMTloMXYxaC0xek0zMCAxOWgxdjFoLTF6TTIgMjBoMXYxaC0xek00IDIwaDJ2MWgtMnpNOCAyMGg1djFoLTV6TTE1IDIwaDN2MWgtM3pNMTkgMjBoMnYxaC0yek0yMiAyMGgydjFoLTJ6TTI2IDIwaDF2MWgtMXpNMjggMjBoMXYxaC0xek0yIDIxaDF2MWgtMXpNOSAyMWgxdjFoLTF6TTExIDIxaDF2MWgtMXpNMTQgMjFoMnYxaC0yek0yMiAyMWg1djFoLTV6TTI5IDIxaDF2MWgtMXpNMiAyMmgydjFoLTJ6TTYgMjJoNHYxaC00ek0xMiAyMmgxdjFoLTF6TTE0IDIyaDF2MWgtMXpNMTYgMjJoNHYxaC00ek0yMSAyMmg2djFoLTZ6TTI4IDIyaDN2MWgtM3pNMTAgMjNoMXYxaC0xek0xMiAyM2gxdjFoLTF6TTE4IDIzaDF2MWgtMXpNMjAgMjNoMXYxaC0xek0yMiAyM2gxdjFoLTF6TTI2IDIzaDV2MWgtNXpNMiAyNGg3djFoLTd6TTEwIDI0aDJ2MWgtMnpNMTMgMjRoMnYxaC0yek0xNyAyNGgxdjFoLTF6TTIxIDI0aDJ2MWgtMnpNMjQgMjRoMXYxaC0xek0yNiAyNGgzdjFoLTN6TTIgMjVoMXYxaC0xek04IDI1aDF2MWgtMXpNMTEgMjVoM3YxaC0zek0xNiAyNWgxdjFoLTF6TTE4IDI1aDF2MWgtMXpNMjEgMjVoMnYxaC0yek0yNiAyNWgxdjFoLTF6TTI5IDI1aDF2MWgtMXpNMiAyNmgxdjFoLTF6TTQgMjZoM3YxaC0zek04IDI2aDF2MWgtMXpNMTAgMjZoMnYxaC0yek0xMyAyNmgxdjFoLTF6TTE3IDI2aDF2MWgtMXpNMTkgMjZoMXYxaC0xek0yMiAyNmg1djFoLTV6TTI4IDI2aDN2MWgtM3pNMiAyN2gxdjFoLTF6TTQgMjdoM3YxaC0zek04IDI3aDF2MWgtMXpNMTAgMjdoMnYxaC0yek0xNCAyN2gzdjFoLTN6TTE4IDI3aDF2MWgtMXpNMjMgMjdoMXYxaC0xek0yNSAyN2gxdjFoLTF6TTI3IDI3aDR2MWgtNHpNMiAyOGgxdjFoLTF6TTQgMjhoM3YxaC0zek04IDI4aDF2MWgtMXpNMTAgMjhoM3YxaC0zek0xNSAyOGgzdjFoLTN6TTE5IDI4aDJ2MWgtMnpNMjIgMjhoOHYxaC04ek0yIDI5aDF2MWgtMXpNOCAyOWgxdjFoLTF6TTEwIDI5aDJ2MWgtMnpNMTQgMjloMnYxaC0yek0xOCAyOWgxdjFoLTF6TTIyIDI5aDF2MWgtMXpNMjQgMjloNHYxaC00ek0yOSAyOWgxdjFoLTF6TTIgMzBoN3YxaC03ek0xMCAzMGgzdjFoLTN6TTE0IDMwaDF2MWgtMXpNMTYgMzBoMXYxaC0xek0xOSAzMGgzdjFoLTN6TTIzIDMwaDJ2MWgtMnpNMjYgMzBoMXYxaC0xek0yOCAzMGgxdjFoLTF6Ii8+PC9zdmc+';
 const SBK='hmaig_sb_session';
 let sbSess=null;try{sbSess=JSON.parse(localStorage.getItem(SBK)||'null')}catch(e){}
-const INBOX={list:[],loaded:false,loading:false,err:'',new:0,filter:'new'};
-const INBOX_COLS='id,code,created_at,updated_at,kind,status,public_status,public_message,name,phone,email,store,device_type,model,serial,sale_date,issue,consent,owner_note,repair_ref'; /* sans « devis » : le PDF n'a pas besoin d'être relu à chaque actualisation */
+const INBOX={list:[],loaded:false,loading:false,err:'',new:0,filter:'new',noUser:false};
+const inboxCols=()=>INBOX.noUser?INBOX_COLS.replace(',user_id',''):INBOX_COLS; /* repli : base sans la colonne user_id (comptes magasins pas encore activés) */
+const INBOX_COLS='id,code,created_at,updated_at,kind,status,public_status,public_message,name,phone,email,store,device_type,model,serial,sale_date,issue,consent,owner_note,repair_ref,user_id'; /* sans « devis » : le PDF n'a pas besoin d'être relu à chaque actualisation */
 const DSTAT={nouvelle:['Nouvelle','orange'],vue:['Vue','blue'],convertie:['Dossier créé','green'],refusee:['Sans suite','grey']};
 const PUBL={recue:'Demande reçue',deposee:'Dossier ouvert',diagnostic:'Diagnostic en cours',devis:'Devis envoyé',validee:'Devis accepté',piece:"En attente d'une pièce",reparation:'Réparation en cours',controle:'Contrôle final',prete:'Prêt à récupérer',terminee:'Terminé',refusee:'Dossier clôturé'};
 const PUB_REP={recu:'deposee',diag:'diagnostic',devis:'devis',valide:'validee',piece:'piece',repar:'reparation',controle:'controle',pret:'prete',clos:'terminee',refuse:'refusee'};
@@ -838,17 +840,20 @@ async function inboxLogin(e){
 }
 async function inboxLogout(){
  try{if(sbSess)await fetch(SB.url+'/auth/v1/logout',{method:'POST',headers:{apikey:SB.key,Authorization:'Bearer '+sbSess.access_token}})}catch(e){}
- sbStore(null);INBOX.list=[];INBOX.loaded=false;INBOX.err='';inboxCount();cloudSet('off');render();
+ sbStore(null);INBOX.list=[];INBOX.loaded=false;INBOX.err='';SHOPS.list=[];SHOPS.loaded=false;SHOPS.sent={};inboxCount();cloudSet('off');render();
 }
 async function inboxLoad(){
  if(!SB.on||!sbSess)return;
  INBOX.loading=true;
  try{
-  const r=await sbReq('GET','/rest/v1/demandes?select='+INBOX_COLS+'&order=created_at.desc&limit=500');
+  const url=()=>'/rest/v1/demandes?select='+inboxCols()+'&order=created_at.desc&limit=500';
+  let r=await sbReq('GET',url());
+  if(r.status===400&&!INBOX.noUser){INBOX.noUser=true;r=await sbReq('GET',url())}
   if(r.status===401){INBOX.err=sbSess?'':'Session expirée : reconnectez-vous.'}
   else if(!r.ok)INBOX.err='Lecture impossible (code '+r.status+').';
   else{INBOX.list=await r.json();INBOX.loaded=true;INBOX.err=''}
  }catch(e){INBOX.err='Pas de connexion : dernière liste connue affichée.'}
+ if(INBOX.loaded&&!INBOX.err)await shopsLoad();
  INBOX.loading=false;inboxCount();
 }
 function inboxCount(){
@@ -939,7 +944,7 @@ const copyText=async t=>{
  toast('Copié');
 };
 const dWhen=s=>{const d=new Date(s);return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}).replace('.','')+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})};
-function vInbox(){return (sbSess?inboxPanel():loginPanel())+linkPanel()}
+function vInbox(){return (sbSess?inboxPanel()+shopsPanel():loginPanel())+linkPanel()}
 function loginPanel(){
  return `<section class="panel"><div class="panel-head"><div><h3>Connexion à la boîte de demandes</h3><div class="panel-sub">Les demandes envoyées par vos clients arrivent ici. Seul le compte de l'atelier peut les lire.</div></div></div>
  <div class="pad"><form onsubmit="inboxLogin(event)" style="max-width:420px"><div class="form-grid" style="grid-template-columns:1fr">
@@ -952,7 +957,7 @@ function loginPanel(){
 function inboxRows(){
  const f=INBOX.filter,L=INBOX.list.filter(d=>f==='all'||(f==='open'?['nouvelle','vue'].includes(d.status):d.status==='nouvelle'));
  return L.map(d=>{const sav=d.kind==='sav',st=DSTAT[d.status]||['?','grey'];
-  return `<tr class="click" onclick="openDemande('${esc(d.id)}')"><td class="nw date">${esc(dWhen(d.created_at))}</td><td><div class="client">${esc(sav?d.store:d.name)}</div><div class="device">${sav?'Magasin · contact '+esc(d.name):'Particulier'} · ${esc(d.phone)}</div></td><td><div class="client">${esc(d.model)}</div><div class="device">${esc(String(d.issue).slice(0,90))}${String(d.issue).length>90?'…':''}</div></td><td><span class="tag ${st[1]}">${st[0]}</span></td></tr>`}).join('');
+  return `<tr class="click" onclick="openDemande('${esc(d.id)}')"><td class="nw date">${esc(dWhen(d.created_at))}</td><td><div class="client">${esc(sav?d.store:d.name)}</div><div class="device">${sav?'Magasin · contact '+esc(d.name):'Particulier'} · ${esc(d.phone)}${d.user_id?' · compte en ligne':''}</div></td><td><div class="client">${esc(d.model)}</div><div class="device">${esc(String(d.issue).slice(0,90))}${String(d.issue).length>90?'…':''}</div></td><td><span class="tag ${st[1]}">${st[0]}</span></td></tr>`}).join('');
 }
 function inboxPanel(){
  const L=INBOX.list,f=INBOX.filter,n=INBOX.new;
@@ -994,6 +999,7 @@ function demandeHTML(id){
  <div class="form-grid">
   ${line(sav?'Magasin':'Nom',esc(sav?d.store:d.name))}${sav?line('Contact',esc(d.name)):''}
   ${line('Téléphone',esc(d.phone))}${line('E-mail',esc(d.email||''))}
+  ${d.user_id?`<div class="field full"><label>Compte en ligne</label><div>${shopLinkLine(d)}</div></div>`:''}
   ${line('Appareil',esc((d.device_type?d.device_type+' · ':'')+d.model))}${line('N° de série / IMEI',esc(d.serial||''))}
   ${sav&&d.sale_date?line('Date de vente',fmtDL(d.sale_date)):''}${line('Reçue le',esc(new Date(d.created_at).toLocaleString('fr-FR',{dateStyle:'long',timeStyle:'short'})))}
   <div class="field full"><label>Panne décrite</label><div style="white-space:pre-wrap">${esc(d.issue)}</div></div>
@@ -1047,6 +1053,131 @@ function demandeToSav(id){
  db.sav.unshift(s);save();
  inboxPatch(d.id,{status:'convertie',repair_ref:s.ref,public_status:'deposee'},true).then(ok=>{if(!ok){s.pubDirty=true;save();toast('SAV créé, mais le suivi client sera mis à jour à la prochaine connexion')}});
  toast('SAV '+s.ref+' créé depuis la demande');openSav(s.id,()=>openDemande(id));
+}
+
+
+/* ---------- Comptes magasins (espace magasin en ligne) ---------- */
+/* Chaque magasin crée son compte sur la page client. Ici, vous le reliez à la fiche du magasin (un clic) :
+   ses SAV saisis dans l'outil sont alors publiés dans son espace (référence, appareil, série, panne, statut, décision, échange).
+   Les notes internes, devis et factures ne sont jamais publiés. */
+const SHOPS={list:[],loaded:false,loading:false,err:'',sent:{},busy:false,again:false,timer:null,merr:''};
+const shopAcc=id=>SHOPS.list.find(a=>a.user_id===id);
+const shopClient=id=>db.clients.find(c=>c.accountId===id);
+const shopsToLink=()=>SHOPS.list.filter(a=>!shopClient(a.user_id));
+async function shopsLoad(){
+ if(!SB.on||!sbSess)return;
+ SHOPS.loading=true;
+ try{
+  const r=await sbReq('GET','/rest/v1/magasins?select=user_id,nom,contact,telephone,email,cree_le&order=cree_le.desc&limit=500');
+  if(r.ok){SHOPS.list=await r.json();SHOPS.loaded=true;SHOPS.err=''}
+  else if(r.status===404||r.status===400){SHOPS.list=[];SHOPS.loaded=false;SHOPS.err='off'} /* comptes magasins pas encore activés dans la base */
+  else SHOPS.err='net';
+ }catch(e){SHOPS.err='net'}
+ SHOPS.loading=false;
+ if(SHOPS.loaded)shopMirrorSoon();
+}
+function mirrorItems(c){
+ const m=new Map(),cut=(v,n)=>String(v==null?'':v).slice(0,n);
+ for(const s of db.sav){
+  if(s.storeId!==c.id||!s.ref)continue;
+  m.set(cut(s.ref,40),{ref:cut(s.ref,40),appareil:cut(s.device,120),serie:cut(s.serial,60),panne:cut(s.issue,2000),statut:PUB_SAV[s.status]||'deposee',
+   decision:s.decision&&s.decision!=='À qualifier'?cut(s.decision,200):'',info:cut(s.exchangeNote,500),recu_le:/^\d{4}-\d{2}-\d{2}$/.test(s.received||'')?s.received:null});
+ }
+ return[...m.values()];
+}
+async function mirrorSend(accId,items){
+ try{
+  const r=await sbReq('POST','/rest/v1/rpc/synchroniser_sav_magasin',{p_user:accId,p_items:items});
+  return r.ok?'ok':(r.status===400?'bad':'err');
+ }catch(e){return'net'}
+}
+async function mirrorRun(){
+ if(!SB.on||!sbSess||!SHOPS.loaded)return;
+ if(SHOPS.busy){SHOPS.again=true;return}
+ SHOPS.busy=true;
+ try{
+  for(const c of db.clients){
+   if(!c.accountId||!shopAcc(c.accountId))continue;
+   const items=mirrorItems(c),fp=JSON.stringify(items);
+   if(SHOPS.sent[c.accountId]===fp)continue;
+   const st=await mirrorSend(c.accountId,items);
+   if(st==='ok'){SHOPS.sent[c.accountId]=fp;SHOPS.merr=''}
+   else SHOPS.merr=st;
+  }
+ }finally{SHOPS.busy=false}
+ if(SHOPS.again){SHOPS.again=false;mirrorRun()}
+ else if(view==='inbox'&&!$('#modalBack').classList.contains('open')&&!/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement||{}).tagName||''))render();
+}
+function shopMirrorSoon(){clearTimeout(SHOPS.timer);SHOPS.timer=setTimeout(mirrorRun,2500)}
+mirrorHook=()=>{if(SHOPS.loaded)shopMirrorSoon()};
+
+function shopLink(accId,clientId){
+ const a=shopAcc(accId),c=db.clients.find(x=>x.id===clientId);if(!a||!c)return;
+ const other=shopClient(accId);
+ if(other&&other.id!==c.id){toast('Ce compte est déjà relié à la fiche « '+other.name+' ».');return}
+ if(c.accountId&&c.accountId!==accId){toast('Cette fiche est déjà reliée à un autre compte : déliez-la d\'abord.');return}
+ if(!confirm('Relier le compte en ligne « '+a.nom+' » ('+a.email+', contact '+a.contact+') à la fiche « '+c.name+' » ?\n\nCe compte pourra voir tous les SAV de cette fiche (référence, appareil, n° de série, panne, statut, décision).\nVérifiez que c\'est bien votre magasin partenaire.'))return;
+ c.accountId=accId;save();toast('Compte relié à « '+c.name+' »');mirrorRun();refreshAfterShop();
+}
+function shopLinkNew(accId){
+ const a=shopAcc(accId);if(!a||shopClient(accId))return;
+ if(!confirm('Créer la fiche magasin « '+a.nom+' » et y relier ce compte ('+a.email+', contact '+a.contact+') ?'))return;
+ const c={id:uid(),kind:'magasin',name:a.nom,phone:a.telephone||'',email:a.email||'',address:'',notes:'Contact : '+a.contact+' (compte en ligne)',accountId:accId};
+ db.clients.push(c);save();toast('Fiche créée et compte relié');mirrorRun();refreshAfterShop();
+}
+function shopLinkSel(accId,selId){const v=$('#'+selId).value;v==='__new'?shopLinkNew(accId):shopLink(accId,v)}
+async function shopUnlink(clientId){
+ const c=db.clients.find(x=>x.id===clientId);if(!c||!c.accountId)return;
+ if(!sbSess){toast('Connectez-vous à la boîte de demandes pour retirer l\'accès.');return}
+ const a=shopAcc(c.accountId);
+ if(!confirm('Retirer l\'accès en ligne de « '+(a?a.nom:c.name)+' » à la fiche « '+c.name+' » ?\n\nLe magasin ne verra plus les SAV saisis par l\'atelier. Ses propres demandes envoyées en ligne restent visibles.'))return;
+ const st=a?await mirrorSend(c.accountId,[]):'ok';
+ if(st!=='ok'){toast('Impossible de retirer l\'accès pour le moment : réessayez dans un instant.');return}
+ delete SHOPS.sent[c.accountId];delete c.accountId;save();toast('Accès retiré');refreshAfterShop();
+}
+function refreshAfterShop(){if($('#modalBack').classList.contains('open'))refreshModal();render()}
+/* Ligne affichée dans la fiche d'une demande envoyée depuis un compte */
+function shopLinkLine(d){
+ const a=shopAcc(d.user_id),c=shopClient(d.user_id);
+ const who=a?esc(a.nom)+' · '+esc(a.email||'')+(a.contact?' · contact '+esc(a.contact):''):'compte magasin';
+ if(c)return who+' — <span class="tag green">relié à la fiche « '+esc(c.name)+' »</span>';
+ if(!a)return who;
+ const m=db.clients.find(x=>x.kind==='magasin'&&!x.accountId&&x.name.toLowerCase()===String(a.nom).toLowerCase());
+ return who+' — <span class="tag orange">non relié</span><div style="margin-top:8px">'+(m?`<button class="primary small" onclick="shopLink('${esc(a.user_id)}','${esc(m.id)}')">Relier à la fiche « ${esc(m.name)} »</button>`:`<button class="primary small" onclick="shopLinkNew('${esc(a.user_id)}')">Créer la fiche et relier</button>`)+'</div>';
+}
+/* Section dans la fiche d'un client magasin */
+function shopSection(c){
+ if(!SB.on||c.kind!=='magasin'||!sbSess||SHOPS.err==='off')return'';
+ const note='<div class="muted" style="margin-top:6px">Le magasin voit ses SAV : référence, appareil, n° de série, panne, statut, décision et échange. Jamais vos notes, devis ni factures.</div>';
+ if(c.accountId){
+  const a=shopAcc(c.accountId);
+  return `<div class="sec"><h4>Espace magasin en ligne</h4><div class="row"><span>Compte relié : <b>${esc(a?a.nom:'compte introuvable')}</b>${a?' · '+esc(a.email||''):''}</span><button class="secondary small" onclick="shopUnlink('${c.id}')">Retirer l'accès</button></div>${note}</div>`;
+ }
+ const L=shopsToLink();
+ if(!L.length)return'';
+ return `<div class="sec"><h4>Espace magasin en ligne</h4><div class="inline-in"><select id="cs_acc" aria-label="Compte à relier">${L.map(a=>opt(a.user_id,a.nom+' · '+(a.email||''),(String(a.nom).toLowerCase()===c.name.toLowerCase())?a.user_id:'')).join('')}</select><button class="secondary" onclick="shopLink($('#cs_acc').value,'${c.id}')">Relier ce compte</button></div>${note}</div>`;
+}
+/* Panneau « Comptes magasins » (Demandes clients) */
+function shopsPanel(){
+ if(!SB.on||!sbSess||SHOPS.err==='off')return'';
+ const L=SHOPS.list;
+ const stores=db.clients.filter(c=>c.kind==='magasin');
+ const rows=[...L].sort((a,b)=>(!!shopClient(a.user_id))-(!!shopClient(b.user_id))).map((a,i)=>{
+  const c=shopClient(a.user_id),sub=[a.contact,a.telephone,a.email].filter(Boolean).map(esc).join(' · ');
+  let act;
+  if(c){
+   const pub=SHOPS.sent[a.user_id]===JSON.stringify(mirrorItems(c));
+   act=`<div><span class="tag green">Relié</span> <button class="secondary small" onclick="openClient('${c.id}')">Fiche « ${esc(c.name)} »</button></div><div class="muted" style="margin-top:4px">${pub?'SAV publiés dans son espace ✓':(SHOPS.merr?'Publication en attente (réessai automatique)…':'Publication en cours…')}</div><div style="margin-top:6px"><button class="icon-btn" onclick="shopUnlink('${c.id}')">Retirer l'accès</button></div>`;
+  }else{
+   const m=stores.find(x=>!x.accountId&&x.name.toLowerCase()===String(a.nom).toLowerCase());
+   const free=stores.filter(x=>!x.accountId&&x!==m);
+   act=`<div><span class="tag orange">À relier</span></div><div class="inline-in" style="margin-top:6px"><select id="lk_${i}" aria-label="Fiche du magasin">${m?opt(m.id,'Fiche « '+m.name+' »',m.id):opt('__new','Créer la fiche « '+a.nom+' »','__new')}${free.map(x=>opt(x.id,'Fiche « '+x.name+' »','')).join('')}${m?opt('__new','Créer une nouvelle fiche','' ):''}</select><button class="primary small" onclick="shopLinkSel('${esc(a.user_id)}','lk_${i}')">Relier</button></div>`;
+  }
+  return `<tr><td><div class="client">${esc(a.nom)}</div><div class="device">${sub}</div></td><td class="nw date">${esc(dWhen(a.cree_le))}</td><td>${act}</td></tr>`;
+ }).join('');
+ const nl=shopsToLink().length;
+ return `<section class="panel" style="margin-top:18px"><div class="panel-head"><div><h3>Comptes magasins${nl?` · ${nl} à relier`:''}</h3><div class="panel-sub">Vos magasins partenaires créent leur compte sur la page client (onglet « Espace magasin »). Reliez chaque compte à la fiche du magasin : il suit alors ses SAV en ligne, en attente ou réparés.</div></div></div>
+ ${rows?`<div class="table-wrap"><table class="table"><thead><tr><th>Magasin</th><th>Compte créé</th><th>Fiche dans l'outil</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="pad"><div class="empty" style="display:block">${SHOPS.loaded?'Aucun compte magasin pour le moment.':(SHOPS.err==='net'?'Liste indisponible pour le moment.':'Chargement…')}</div></div>`}</section>`;
 }
 
 /* ---------- Démarrage de la synchronisation ---------- */
@@ -1765,6 +1896,7 @@ function clientHTML(id){
  <div class="sec"><h4>Appareils (${devs.length})</h4>${devs.map(d=>{const h=reps.filter(r=>r.deviceId===d.id);return `<div class="dev-card"><div class="grid3">${fi('devices',d.id,'model','Modèle','text',d.model)}${fi('devices',d.id,'serial','N° série / IMEI','text',d.serial)}${fs('devices',d.id,'type','Type',opts(DTYPES,d.type))}</div>
   <div style="margin-top:8px">${h.map(r=>`<div class="row click" onclick="openRepair('${r.id}',${back})"><span><b class="mono">${esc(r.ref)}</b> · ${fmtDL(r.deposit)} · ${esc(r.issue)}</span><span class="tag ${stC(r.status)}">${stL(r.status)}</span></div>`).join('')||'<div class="muted">Aucune intervention.</div>'}</div>${h.length?'':`<button class="icon-btn" style="margin-top:6px" onclick="delDevice('${d.id}','${id}')">Supprimer cet appareil</button>`}</div>`}).join('')||'<div class="muted">Aucun appareil enregistré.</div>'}
   <div class="inline-in"><select id="nd_type" style="max-width:190px">${opts(DTYPES,'Smartphone')}</select><input id="nd_model" placeholder="Modèle"><input id="nd_serial" placeholder="N° série / IMEI"><button class="secondary" onclick="addDevice('${id}')">+ Appareil</button></div></div>
+ ${shopSection(c)}
  ${savs.length?`<div class="sec"><h4>Demandes SAV (${savs.length})</h4>${savs.map(s=>`<div class="row click" onclick="openSav('${s.id}',${back})"><span><b class="mono">${esc(s.ref)}</b> · ${fmtDL(s.received)} · ${esc(s.device)}</span><span class="tag ${savStC(s.status)}">${esc(s.status)}</span></div>`).join('')}</div>`:''}
  ${docs.length?`<div class="sec"><h4>Devis &amp; factures (${docs.length})</h4>${docs.map(x=>`<div class="row click" onclick="openDoc('${x.id}',${back})"><span><b class="mono">${esc(x.number)}</b> · ${fmtDL(x.date)}</span><span><span class="tag ${docStC(x.status)}">${esc(x.status)}</span> <b class="mono">${eur(totals(x).ttc)}</b></span></div>`).join('')}</div>`:''}
  <div class="form-actions"><button class="danger" style="margin-right:auto" onclick="delClient('${id}')">Supprimer la fiche</button><button class="secondary" onclick="openRepairForm({clientName:${esc(JSON.stringify(c.name)).replace(/'/g,'&#39;')},kind:'${c.kind}'},${back})">+ Nouvelle réparation</button><button class="primary" onclick="closeModal()">Fermer</button></div>`;
@@ -1772,6 +1904,7 @@ function clientHTML(id){
 function addDevice(id){const m=$('#nd_model').value.trim();if(!m){toast('Indiquez le modèle');return}db.devices.push({id:uid(),clientId:id,type:$('#nd_type').value,model:m,serial:$('#nd_serial').value.trim(),notes:''});save();refreshModal()}
 function delDevice(did,cid){if(!confirm('Supprimer cet appareil ?'))return;db.devices=db.devices.filter(d=>d.id!==did);save();refreshModal()}
 function delClient(id){
+ const c0=db.clients.find(c=>c.id===id);if(c0&&c0.accountId){toast('Cette fiche est reliée à un compte en ligne : retirez d\'abord l\'accès.');return}
  if(db.repairs.some(r=>r.clientId===id)||db.sav.some(s=>s.storeId===id)||db.docs.some(d=>d.clientId===id)){toast('Impossible : ce client a des dossiers ou des documents.');return}
  if(!confirm('Supprimer cette fiche client et ses appareils ?'))return;db.devices=db.devices.filter(d=>d.clientId!==id);db.clients=db.clients.filter(c=>c.id!==id);save();closeModal();toast('Fiche supprimée');
 }
@@ -1803,7 +1936,7 @@ function savHTML(id){
  const w=savWarr(s),store=cl(s.storeId),rep=db.repairs.find(x=>x.id===s.repairId),back=`()=>openSav('${id}')`;
  const stores=db.clients.filter(c=>c.kind==='magasin'||c.id===s.storeId);
  return `${mh(s.ref+' · SAV magasin',store.name+' — '+s.device)}
- <div class="status-bar"><span class="tag ${w.c}">${w.l}</span><span class="muted">${w.end?"Garantie magasin jusqu'au "+fmtDL(w.end):'Renseignez la date de vente pour calculer la garantie'}</span>
+ <div class="status-bar"><span class="tag ${w.c}">${w.l}</span><span class="muted">${w.end?"Garantie magasin jusqu'au "+fmtDL(w.end):'Renseignez la date de vente pour calculer la garantie'}</span>${store.accountId?'<span class="tag blue" title="Ce SAV est visible dans l\'espace en ligne du magasin">Visible en ligne</span>':''}
   ${rep?`<button class="secondary small" onclick="openRepair('${rep.id}',${back})">Ouvrir ${esc(rep.ref)}</button>`:`<button class="primary small" onclick="createRepairFromSav('${id}')">Créer le dossier de réparation</button>`}<button class="secondary small" onclick="notifySav('${id}')">✉ Prévenir le magasin</button></div>
  <div class="form-grid">
   <div class="field"><label>Magasin</label><select onchange="upd('sav','${id}','storeId',this.value)">${stores.map(c=>opt(c.id,c.name,s.storeId)).join('')}</select></div>
