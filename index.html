@@ -1000,7 +1000,7 @@ function demandeHTML(id){
   ${line(sav?'Magasin':'Nom',esc(sav?d.store:d.name))}${sav?line('Contact',esc(d.name)):''}
   ${line('Téléphone',esc(d.phone))}${line('E-mail',esc(d.email||''))}
   ${d.user_id?`<div class="field full"><label>Compte en ligne</label><div>${shopLinkLine(d)}</div></div>`:''}
-  ${line('Appareil',esc((d.device_type?d.device_type+' · ':'')+d.model))}${line('N° de série / IMEI',esc(d.serial||''))}
+  ${line('Appareil',esc((d.device_type?d.device_type+' · ':'')+d.model))}${line(sav?'Code-barres / n° de suivi':'N° de série / IMEI',esc(d.serial||''))}
   ${sav&&d.sale_date?line('Date de vente',fmtDL(d.sale_date)):''}${line('Reçue le',esc(new Date(d.created_at).toLocaleString('fr-FR',{dateStyle:'long',timeStyle:'short'})))}
   <div class="field full"><label>Panne décrite</label><div style="white-space:pre-wrap">${esc(d.issue)}</div></div>
  </div>
@@ -1116,7 +1116,7 @@ function shopLink(accId,clientId){
  const other=shopClient(accId);
  if(other&&other.id!==c.id){toast('Ce compte est déjà relié à la fiche « '+other.name+' ».');return}
  if(c.accountId&&c.accountId!==accId){toast('Cette fiche est déjà reliée à un autre compte : déliez-la d\'abord.');return}
- if(!confirm('Relier le compte en ligne « '+a.nom+' » ('+a.email+', contact '+a.contact+') à la fiche « '+c.name+' » ?\n\nCe compte pourra voir tous les SAV de cette fiche (référence, appareil, n° de série, panne, statut, décision).\nVérifiez que c\'est bien votre magasin partenaire.'))return;
+ if(!confirm('Relier le compte en ligne « '+a.nom+' » ('+a.email+', contact '+a.contact+') à la fiche « '+c.name+' » ?\n\nCe compte pourra voir tous les SAV de cette fiche (référence, appareil, code-barres / n° de suivi, panne, statut, décision).\nVérifiez que c\'est bien votre magasin partenaire.'))return;
  c.accountId=accId;save();toast('Compte relié à « '+c.name+' »');mirrorRun();refreshAfterShop();
 }
 function shopLinkNew(accId){
@@ -1148,7 +1148,7 @@ function shopLinkLine(d){
 /* Section dans la fiche d'un client magasin */
 function shopSection(c){
  if(!SB.on||c.kind!=='magasin'||!sbSess||SHOPS.err==='off')return'';
- const note='<div class="muted" style="margin-top:6px">Le magasin voit ses SAV : référence, appareil, n° de série, panne, statut, décision et échange. Jamais vos notes, devis ni factures.</div>';
+ const note='<div class="muted" style="margin-top:6px">Le magasin voit ses SAV : référence, appareil, code-barres / n° de suivi, panne, statut, décision et échange. Jamais vos notes, devis ni factures.</div>';
  if(c.accountId){
   const a=shopAcc(c.accountId);
   return `<div class="sec"><h4>Espace magasin en ligne</h4><div class="row"><span>Compte relié : <b>${esc(a?a.nom:'compte introuvable')}</b>${a?' · '+esc(a.email||''):''}</span><button class="secondary small" onclick="shopUnlink('${c.id}')">Retirer l'accès</button></div>${note}</div>`;
@@ -1721,7 +1721,7 @@ function repairHTML(id){
  const sub=we?(we>=today()?`Active jusqu'au <b>${fmtDL(we)}</b>`:`Expirée depuis le ${fmtDL(we)}`):`${db.settings.warrantyMonths} mois, calculés à la restitution`;
  return `${mh(r.ref+' · '+(r.source==='magasin'?'SAV magasin':'Client'),c.name+' — '+d.model)}
  <div class="stepper">${STEPS.map((s,i)=>`<div class="step ${i<st?'done':i===st?'cur':''}"><b>${i<st?'✓':i+1}</b><span>${s}</span></div>`).join('')}</div>
- <div class="status-bar"><select onchange="setStatus('${id}',this.value)" aria-label="Statut">${ST.map(s=>opt(s[0],s[1],r.status)).join('')}</select>${nx?`<button class="primary small" onclick="setStatus('${id}','${nx}')">Passer à « ${stL(nx)} » →</button>`:''}<button class="secondary small" onclick="notifyRepair('${id}')">✉ Message client</button><button class="secondary small" onclick="printReceipt('${id}')">🖶 Bon de dépôt</button></div>
+ <div class="status-bar"><select onchange="setStatus('${id}',this.value)" aria-label="Statut">${ST.map(s=>opt(s[0],s[1],r.status)).join('')}</select>${nx?`<button class="primary small" onclick="setStatus('${id}','${nx}')">Passer à « ${stL(nx)} » →</button>`:''}<button class="secondary small" onclick="notifyRepair('${id}')">✉ Message client</button><button class="secondary small" onclick="printReceipt('${id}')">🖶 Bon de dépôt</button><button class="secondary small" onclick="printFin('${id}')">🖶 Fiche de fin d'intervention</button></div>
  <div class="muted" style="margin:-6px 0 16px">${esc(d.type)} · ${esc(d.model)}${d.serial?' · N° série / IMEI : <b class="mono">'+esc(d.serial)+'</b>':''} · <a href="#" onclick="openClient('${c.id}',${back});return false">fiche ${esc(c.name)}</a>${c.phone?' · '+esc(c.phone):''}</div>
  <div class="form-grid">
   ${fi('repairs',id,'issue','Panne constatée','text',r.issue,'full')}
@@ -1790,6 +1790,42 @@ function receiptHTML(r){
  <div class="doc-sign">Signature du client (lu et approuvé) :</div></div>`;
 }
 function printReceipt(id){printHTML(receiptHTML(db.repairs.find(x=>x.id===id)))}
+
+/* ============ Fiche de fin d'intervention (1 page A4, remise avec l'appareil) ============ */
+const finChecks=r=>CHECK.map((t,i)=>`<div>${r&&r.check&&r.check[i]?'☑':'☐'} ${esc(t)}</div>`).join('');
+const finParts=r=>r&&r.parts&&r.parts.length?r.parts.map(x=>{const p=pt(x.partId);return esc(x.qty+' × '+(p?p.name:'Pièce'))}).join('<br>'):'Aucune pièce remplacée';
+const finFull='style="grid-column:1/-1"';
+function finRepairHTML(r){
+ const s=db.settings,c=cl(r.clientId),d=dv(r.deviceId),shop=r.source==='magasin',sv=shop&&r.savId?db.sav.find(x=>x.id===r.savId):null;
+ const docs=repDocs(r),fac=docs.find(x=>x.kind==='facture'),done=r.returnDate||r.doneAt||today(),we=warrEnd(r);
+ const id=d.serial?'<br>'+(shop?'Code-barres / n° de suivi : ':'N° série / IMEI : ')+esc(d.serial):'';
+ let bottom;
+ if(shop){
+  bottom=`<div ${finFull}><b>Suite donnée</b><br>${sv?esc(sv.decision||'—')+(sv.exchangeNote?'<br>'+esc(sv.exchangeNote):''):'—'}</div>`;
+ }else{
+  const amount=fac?totals(fac).ttc:(Number(r.estimate)||0);
+  bottom=`<div><b>Garantie réparation</b><br>${s.warrantyMonths} mois à compter de la restitution de l'appareil${we?', soit jusqu\'au '+fmtDL(we):''}, limitée à la panne réparée.</div><div><b>${fac?'Montant facturé':'Montant'}</b><br>${amount?eur(amount)+' TTC':'—'}${fac?'<br>Facture '+esc(fac.number):''}<br>Paiement : ${esc(r.payment||'—')}</div>`;
+ }
+ return `<div class="doc"><div class="doc-head"><div>${coBlock()}</div><div class="doc-ti"><h1>FIN D'INTERVENTION</h1><div>Dossier ${esc(r.ref)}</div><div>Terminée le ${fmtDL(done)}</div></div></div>
+ <div class="doc-grid"><div><b>${shop?'Magasin':'Client'}</b><br>${esc(c.name)}${c.phone?'<br>'+esc(c.phone):''}</div><div><b>Appareil</b><br>${esc(d.model)} (${esc(d.type)})${id}</div>
+ <div><b>Panne déclarée</b><br>${esc(r.issue)||'—'}</div><div><b>Déposé le</b><br>${fmtDL(r.deposit)}</div>
+ <div ${finFull}><b>Travaux réalisés</b><br><span style="white-space:pre-wrap">${esc(r.diagnosis)||'—'}</span></div>
+ <div><b>Pièces remplacées</b><br>${finParts(r)}</div><div><b>Contrôles finaux</b>${finChecks(r)}</div>
+ ${bottom}</div>
+ <div class="doc-sign">Appareil récupéré le ____ / ____ / ________ &nbsp; — &nbsp; Signature (lu et approuvé) :</div></div>`;
+}
+function printFin(id){printHTML(finRepairHTML(db.repairs.find(x=>x.id===id)))}
+function finSavHTML(sv){
+ const store=cl(sv.storeId),w=savWarr(sv),r=db.repairs.find(x=>x.id===sv.repairId);
+ return `<div class="doc"><div class="doc-head"><div>${coBlock()}</div><div class="doc-ti"><h1>FIN D'INTERVENTION</h1><div>SAV ${esc(sv.ref)}</div><div>${r&&r.returnDate?'Terminée le '+fmtDL(r.returnDate):'Éditée le '+fmtDL(today())}</div></div></div>
+ <div class="doc-grid"><div><b>Magasin</b><br>${esc(store.name)}${store.phone?'<br>'+esc(store.phone):''}</div><div><b>Appareil</b><br>${esc(sv.device)||'—'}${sv.serial?'<br>Code-barres / n° de suivi : '+esc(sv.serial):''}</div>
+ <div><b>Panne signalée</b><br>${esc(sv.issue)||'—'}</div><div><b>Reçu le</b><br>${fmtDL(sv.received)}<br>${esc(w.l)}${w.end?' (jusqu\'au '+fmtDL(w.end)+')':''}</div>
+ <div ${finFull}><b>Travaux réalisés</b><br><span style="white-space:pre-wrap">${esc(r&&r.diagnosis)||'—'}</span></div>
+ <div><b>Pièces remplacées</b><br>${finParts(r)}</div><div><b>Contrôles finaux</b>${finChecks(r)}</div>
+ <div ${finFull}><b>Suite donnée</b><br>${esc(sv.decision||'—')}${sv.exchangeNote?'<br>'+esc(sv.exchangeNote):''}</div></div>
+ <div class="doc-sign">Appareil récupéré le ____ / ____ / ________ &nbsp; — &nbsp; Signature du magasin :</div></div>`;
+}
+function printFinSav(id){printHTML(finSavHTML(db.sav.find(x=>x.id===id)))}
 
 /* ============ Devis & factures ============ */
 function openDocPicker(kind){
@@ -1915,7 +1951,7 @@ function openSavForm(back){
   <div class="field"><label>Magasin demandeur *</label><input id="s_store" required list="dlS" autocomplete="off" placeholder="Nom du magasin"></div>
   <div class="field"><label>Date de réception *</label><input id="s_recv" type="date" required value="${today()}" oninput="savPreview()"></div>
   <div class="field"><label>Appareil *</label><input id="s_dev" required placeholder="ex. iPhone 11"></div>
-  <div class="field"><label>N° de série / IMEI</label><input id="s_serial"></div>
+  <div class="field"><label>Code-barres / n° de suivi du magasin</label><input id="s_serial"></div>
   <div class="field full"><label>Panne signalée *</label><input id="s_issue" required placeholder="ex. Ne charge plus"></div>
   <div class="field"><label>Date de vente au client final</label><input id="s_sale" type="date" oninput="savPreview()"></div>
   <div class="field"><label>Garantie du magasin (mois)</label><input id="s_wm" type="number" min="0" value="12" oninput="savPreview()"></div>
@@ -1937,12 +1973,12 @@ function savHTML(id){
  const stores=db.clients.filter(c=>c.kind==='magasin'||c.id===s.storeId);
  return `${mh(s.ref+' · SAV magasin',store.name+' — '+s.device)}
  <div class="status-bar"><span class="tag ${w.c}">${w.l}</span><span class="muted">${w.end?"Garantie magasin jusqu'au "+fmtDL(w.end):'Renseignez la date de vente pour calculer la garantie'}</span>${store.accountId?'<span class="tag blue" title="Ce SAV est visible dans l\'espace en ligne du magasin">Visible en ligne</span>':''}
-  ${rep?`<button class="secondary small" onclick="openRepair('${rep.id}',${back})">Ouvrir ${esc(rep.ref)}</button>`:`<button class="primary small" onclick="createRepairFromSav('${id}')">Créer le dossier de réparation</button>`}<button class="secondary small" onclick="notifySav('${id}')">✉ Prévenir le magasin</button></div>
+  ${rep?`<button class="secondary small" onclick="openRepair('${rep.id}',${back})">Ouvrir ${esc(rep.ref)}</button>`:`<button class="primary small" onclick="createRepairFromSav('${id}')">Créer le dossier de réparation</button>`}<button class="secondary small" onclick="notifySav('${id}')">✉ Prévenir le magasin</button><button class="secondary small" onclick="printFinSav('${id}')">🖶 Fiche de fin d'intervention</button></div>
  <div class="form-grid">
   <div class="field"><label>Magasin</label><select onchange="upd('sav','${id}','storeId',this.value)">${stores.map(c=>opt(c.id,c.name,s.storeId)).join('')}</select></div>
   <div class="field"><label>Statut</label><select onchange="setSavStatus('${id}',this.value)">${opts(SAVST,s.status)}</select></div>
   ${fi('sav',id,'received','Date de réception','date',s.received)}${fs('sav',id,'decision','Décision',opts(SAVDEC,s.decision))}
-  ${fi('sav',id,'device','Appareil','text',s.device)}${fi('sav',id,'serial','N° de série / IMEI','text',s.serial)}
+  ${fi('sav',id,'device','Appareil','text',s.device)}${fi('sav',id,'serial','Code-barres / n° de suivi du magasin','text',s.serial)}
   ${fi('sav',id,'issue','Panne signalée','text',s.issue,'full')}
   ${fi('sav',id,'saleDate','Date de vente au client final','date',s.saleDate)}${fi('sav',id,'warrantyMonths','Garantie du magasin (mois)','number',s.warrantyMonths)}
   ${ft('sav',id,'exchangeNote','Échange / appareil de remplacement (modèle, n° de série…)',s.exchangeNote,'full')}</div>

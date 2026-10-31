@@ -193,10 +193,10 @@ footer p{margin:0 0 8px}
       <div class="field full" id="rowStore" hidden><label for="f_store">Nom du magasin <i>*</i></label><input id="f_store" type="text" maxlength="120" autocomplete="organization"></div>
       <div class="field" id="rowName"><label for="f_name" id="lbName">Nom et prénom <i>*</i></label><input id="f_name" type="text" maxlength="120" autocomplete="name" required></div>
       <div class="field"><label for="f_phone">Téléphone <i>*</i></label><input id="f_phone" type="tel" inputmode="tel" maxlength="30" autocomplete="tel" required></div>
-      <div class="field full"><label for="f_email" id="lbEmail">E-mail</label><input id="f_email" type="email" maxlength="160" autocomplete="email"></div>
+      <div class="field full" id="rowEmail"><label for="f_email" id="lbEmail">E-mail</label><input id="f_email" type="email" maxlength="160" autocomplete="email"></div>
       <div class="field"><label for="f_dtype">Type d'appareil</label><select id="f_dtype"><option>Smartphone</option><option>Tablette</option><option>Ordinateur portable</option><option>PC fixe</option><option>Console de jeux</option><option>Autre</option></select></div>
       <div class="field"><label for="f_model">Marque et modèle <i>*</i></label><input id="f_model" type="text" maxlength="120" placeholder="ex. iPhone 13, PS5, Dell Latitude" required></div>
-      <div class="field full"><label for="f_serial" id="lbSerial">N° de série ou IMEI</label><input id="f_serial" type="text" maxlength="60" autocomplete="off"><p class="help">Facultatif. Sur un téléphone, composez <b>*#06#</b> pour afficher l'IMEI.</p></div>
+      <div class="field full"><label for="f_serial" id="lbSerial">N° de série ou IMEI</label><input id="f_serial" type="text" maxlength="60" autocomplete="off"><p class="help" id="hpSerial">Facultatif. Sur un téléphone, composez <b>*#06#</b> pour afficher l'IMEI.</p></div>
       <div class="field full" id="rowSale" hidden><label for="f_sale">Date de vente au client final</label><input id="f_sale" type="date"><p class="help">Elle sert à vérifier la garantie du magasin.</p></div>
       <div class="field full"><label for="f_issue">Quelle est la panne ? <i>*</i></label><textarea id="f_issue" maxlength="2000" required placeholder="ex. L'écran est cassé et le téléphone ne charge plus depuis une chute."></textarea></div>
      </div>
@@ -296,7 +296,7 @@ footer p{margin:0 0 8px}
 
     <div id="subList">
      <div class="counts" id="counts"></div>
-     <div class="field find"><label for="s_q" style="position:absolute;left:-9999px">Rechercher</label><input id="s_q" type="text" maxlength="60" placeholder="Référence, n° de série, appareil…" autocomplete="off" spellcheck="false"></div>
+     <div class="field find"><label for="s_q" style="position:absolute;left:-9999px">Rechercher</label><input id="s_q" type="text" maxlength="60" placeholder="Référence, code-barres, appareil…" autocomplete="off" spellcheck="false"></div>
      <div class="notice err" id="aErr" role="alert" hidden></div>
      <div id="aList"></div>
      <div class="tools"><p class="upd" id="aUpd"></p><button type="button" class="secondary" id="bRefresh">Actualiser</button></div>
@@ -308,10 +308,9 @@ footer p{margin:0 0 8px}
       <div class="grid">
        <div class="field"><label for="n_name">Contact <i>*</i></label><input id="n_name" type="text" maxlength="120" autocomplete="name"></div>
        <div class="field"><label for="n_phone">Téléphone <i>*</i></label><input id="n_phone" type="tel" inputmode="tel" maxlength="30" autocomplete="tel"></div>
-       <div class="field full"><label for="n_email">E-mail</label><input id="n_email" type="email" maxlength="160" autocomplete="email"></div>
        <div class="field"><label for="n_dtype">Type d'appareil</label><select id="n_dtype"><option>Smartphone</option><option>Tablette</option><option>Ordinateur portable</option><option>PC fixe</option><option>Console de jeux</option><option>Autre</option></select></div>
        <div class="field"><label for="n_model">Marque et modèle <i>*</i></label><input id="n_model" type="text" maxlength="120" placeholder="ex. iPhone 13, PS5, Dell Latitude"></div>
-       <div class="field full"><label for="n_serial">N° de série ou IMEI (recommandé)</label><input id="n_serial" type="text" maxlength="60" autocomplete="off"><p class="help">Sur un téléphone, composez <b>*#06#</b> pour afficher l'IMEI.</p></div>
+       <div class="field full"><label for="n_serial">Code-barres ou n° de suivi du magasin</label><input id="n_serial" type="text" maxlength="60" autocomplete="off" placeholder="ex. 3760123456789 ou SAV-2041"><p class="help">Facultatif, mais utile : le code-barres de l'étiquette ou votre numéro de suivi interne.</p></div>
        <div class="field full"><label for="n_sale">Date de vente au client final</label><input id="n_sale" type="date"><p class="help">Elle sert à vérifier la garantie du magasin.</p></div>
        <div class="field full"><label for="n_issue">Quelle est la panne ? <i>*</i></label><textarea id="n_issue" maxlength="2000" placeholder="ex. L'écran est cassé et le téléphone ne charge plus depuis une chute."></textarea></div>
       </div>
@@ -377,9 +376,11 @@ function applyWho(){
  const m=who()==='mag';
  $('#rowStore').hidden=!m;$('#rowSale').hidden=!m;$('#magHint').hidden=!m;
  $('#lbName').innerHTML=m?'Nom du contact <i>*</i>':'Nom et prénom <i>*</i>';
- $('#lbEmail').innerHTML=m?'E-mail <i>*</i>':'E-mail';
- $('#lbSerial').textContent=m?'N° de série ou IMEI (recommandé)':'N° de série ou IMEI';
- $('#f_store').required=m;$('#f_email').required=m;
+ $('#rowEmail').hidden=m; /* les magasins suivent leurs SAV en ligne : pas d'e-mail de suivi */
+ $('#lbSerial').textContent=m?'Code-barres ou n° de suivi du magasin':'N° de série ou IMEI';
+ $('#hpSerial').innerHTML=m?"Facultatif, mais utile : le code-barres de l'étiquette ou votre numéro de suivi interne.":"Facultatif. Sur un téléphone, composez <b>*#06#</b> pour afficher l'IMEI.";
+ $('#f_serial').placeholder=m?'ex. 3760123456789 ou SAV-2041':'';
+ $('#f_store').required=m;$('#f_email').required=false;
 }
 document.querySelectorAll('input[name=who]').forEach(r=>r.addEventListener('change',applyWho));
 
@@ -421,11 +422,11 @@ $('#form').addEventListener('submit',async e=>{
  e.preventDefault();if(sending)return;
  const err=$('#err');showErr(err,'');
  const m=who()==='mag',v=id=>$('#'+id).value.trim();
- const name=v('f_name'),phone=v('f_phone'),email=v('f_email'),model=v('f_model'),issue=v('f_issue'),store=v('f_store');
+ const name=v('f_name'),phone=v('f_phone'),email=m?'':v('f_email'),model=v('f_model'),issue=v('f_issue'),store=v('f_store');
  if(m&&store.length<2)return fail('Indiquez le nom du magasin.','f_store');
  if(name.length<2)return fail(m?'Indiquez le nom du contact.':'Indiquez votre nom.','f_name');
  if(phone.replace(/\D/g,'').length<6)return fail('Indiquez un numéro de téléphone valide.','f_phone');
- if((m||email)&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email))return fail('Indiquez une adresse e-mail valide.','f_email');
+ if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email))return fail('Indiquez une adresse e-mail valide.','f_email');
  if(model.length<2)return fail("Indiquez la marque et le modèle de l'appareil.",'f_model');
  if(issue.length<5)return fail('Décrivez la panne en quelques mots.','f_issue');
  if(!$('#f_consent').checked)return fail("Cochez la case d'acceptation pour envoyer la demande.",'f_consent');
@@ -688,7 +689,7 @@ $('#vReset').addEventListener('submit',async e=>{
 function logout(msg){
  const s=SH.sess;saveSess(null);SH.prof=null;SH.list=null;SH.filter=null;SH.q='';SH.at=0;SH.open.clear();
  // rien du magasin précédent ne doit rester dans la page (ordinateur partagé)
- for(const id of['s_q','n_name','n_phone','n_email','n_model','n_serial','n_sale','n_issue'])$('#'+id).value='';
+ for(const id of['s_q','n_name','n_phone','n_model','n_serial','n_sale','n_issue'])$('#'+id).value='';
  for(const id of['aList','counts','aUpd','aName','aMail'])$('#'+id).textContent='';
  showErr($('#aErr'),'');showErr($('#nErr'),'');$('#nOk').hidden=true;$('#fNew').hidden=false;subTab('list');
  if(s){api('POST','/auth/v1/logout',undefined,s.access_token).catch(()=>{})}
@@ -771,10 +772,10 @@ function renderList(){
 function repHtml(x){
  const st=SL[x.statut]?x.statut:'recue',b=bucket(st),k=x.origine+'|'+x.ref,open=SH.open.has(k);
  const cur=STATUS[st].i;
- const meta=[x.serie?'N° de série '+esc(x.serie):'',x.recu_le?'Reçu le '+esc(fmtP(x.recu_le)):''].filter(Boolean).join(' · ');
+ const meta=[x.serie?'Code-barres / suivi '+esc(x.serie):'',x.recu_le?'Reçu le '+esc(fmtP(x.recu_le)):''].filter(Boolean).join(' · ');
  const row=(l,v)=>v?`<dt>${l}</dt><dd>${esc(v)}</dd>`:'';
  const steps=cur<0?'':`<ul class="steps">${SSTEPS.map((l,i)=>`<li class="${i<cur?'done':i===cur?'cur':''}"><i>${i<cur?'✓':''}</i>${esc(l)}</li>`).join('')}</ul>`;
- const det=open?`<div class="rd"><dl>${row('Appareil',x.appareil)}${row('N° de série',x.serie)}${row('Panne signalée',x.panne)}${row('Reçu le',fmtP(x.recu_le))}${row('Mis à jour le',fmtP(x.maj_le))}${x.code&&x.code!==x.ref?row('Code de suivi',x.code):''}${row("Décision de l'atelier",x.decision)}${row('Information',x.info)}${row("Message de l'atelier",x.message)}</dl>${steps}</div>`:'';
+ const det=open?`<div class="rd"><dl>${row('Appareil',x.appareil)}${row('Code-barres / n° de suivi',x.serie)}${row('Panne signalée',x.panne)}${row('Reçu le',fmtP(x.recu_le))}${row('Mis à jour le',fmtP(x.maj_le))}${x.code&&x.code!==x.ref?row('Code de suivi',x.code):''}${row("Décision de l'atelier",x.decision)}${row('Information',x.info)}${row("Message de l'atelier",x.message)}</dl>${steps}</div>`:'';
  return `<div class="rep"><button type="button" class="rh" data-k="${esc(k)}" aria-expanded="${open}"><span class="r1"><span><span class="ref">${esc(x.ref)}</span><span class="dev">${esc(x.appareil||'Appareil')}</span></span><span class="chip ${b==='done'?'good':b==='closed'?'grey':''}">${esc(SL[st])}</span></span>${meta?`<span class="meta">${meta}</span>`:''}</button>${det}</div>`;
 }
 $('#counts').addEventListener('click',e=>{const b=e.target.closest('[data-f]');if(!b)return;SH.filter=b.dataset.f;renderList()});
@@ -799,17 +800,15 @@ function fillNew(){
  const p=SH.prof||{};
  if(!$('#n_name').value)$('#n_name').value=p.contact||'';
  if(!$('#n_phone').value)$('#n_phone').value=p.telephone||'';
- if(!$('#n_email').value)$('#n_email').value=(SH.sess&&SH.sess.email)||p.email||'';
 }
 let sendingNew=false;
 $('#fNew').addEventListener('submit',async e=>{
  e.preventDefault();if(sendingNew)return;
  const err=$('#nErr');showErr(err,'');
- const v=id=>$('#'+id).value.trim(),name=v('n_name'),phone=v('n_phone'),email=v('n_email'),model=v('n_model'),issue=v('n_issue');
+ const v=id=>$('#'+id).value.trim(),name=v('n_name'),phone=v('n_phone'),model=v('n_model'),issue=v('n_issue');
  const bad=(t,id)=>{showErr(err,t);$('#'+id).focus()};
  if(name.length<2)return bad('Indiquez le nom du contact.','n_name');
  if(phone.replace(/\D/g,'').length<6)return bad('Indiquez un numéro de téléphone valide.','n_phone');
- if(email&&!mailOk(email))return bad('Indiquez une adresse e-mail valide.','n_email');
  if(model.length<2)return bad("Indiquez la marque et le modèle de l'appareil.",'n_model');
  if(issue.length<5)return bad('Décrivez la panne en quelques mots.','n_issue');
  sendingNew=true;const btn=$('#bNew');btn.disabled=true;btn.textContent='Envoi en cours…';
@@ -817,7 +816,7 @@ $('#fNew').addEventListener('submit',async e=>{
  for(let k=0;k<3&&!ok;k++){
   code=makeCode();
   try{
-   const r=await authed('POST','/rest/v1/rpc/deposer_demande_magasin',{p_code:code,p_name:name,p_phone:phone,p_email:email||null,p_device_type:$('#n_dtype').value,p_model:model,p_serial:v('n_serial')||null,p_sale_date:v('n_sale')||null,p_issue:issue});
+   const r=await authed('POST','/rest/v1/rpc/deposer_demande_magasin',{p_code:code,p_name:name,p_phone:phone,p_email:null,p_device_type:$('#n_dtype').value,p_model:model,p_serial:v('n_serial')||null,p_sale_date:v('n_sale')||null,p_issue:issue});
    if(r.ok)ok=true;else if(r.status===409)continue;else{why=r.status===403?'denied':'';break}
   }catch(x){why=x&&x.code==='nosess'?'nosess':'';break}
  }
