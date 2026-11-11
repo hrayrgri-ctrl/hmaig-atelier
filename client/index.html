@@ -129,6 +129,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--ink);box-shadow:0 0 0
 .shop b{display:block;font:800 18px/1.2 var(--disp);letter-spacing:-.02em;overflow-wrap:anywhere}
 .shop small{display:block;color:var(--muted);font-size:13px;overflow-wrap:anywhere}
 .shop .secondary{flex:none;padding:9px 12px;font-size:14px}
+.acct{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;margin:0 0 22px;padding:14px 16px;background:var(--soft);border:1px solid var(--line);border-radius:12px}
+.acct small{display:block;color:var(--muted);font-size:12.5px}
+.acct b{display:block;font-weight:700;font-size:15px;overflow-wrap:anywhere;min-height:1.2em}
+#fPwd .primary{margin-top:4px}
+#pErr,#pOk{margin-top:14px}
 .counts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 14px}
 .counts button{background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:10px 6px;text-align:center;line-height:1.2}
 .counts b{display:block;font:800 26px/1.1 var(--disp);font-variant-numeric:tabular-nums}
@@ -154,7 +159,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--ink);box-shadow:0 0 0
 
 footer{padding:6px 0 36px;color:var(--muted);font-size:13px}
 footer p{margin:0 0 8px}
-@media(max-width:560px){.grid{grid-template-columns:1fr}.pane{padding:20px 16px 22px}.tabs button{font-size:13.5px}.shop{align-items:flex-start;flex-direction:column}.codebox b{font-size:25px}.track{flex-direction:column}.track button{padding:14px}}
+@media(max-width:560px){.grid{grid-template-columns:1fr}.pane{padding:20px 16px 22px}.tabs button{font-size:13.5px}.shop{align-items:flex-start;flex-direction:column}.acct{grid-template-columns:1fr}.sub button{font-size:13.5px}.codebox b{font-size:25px}.track{flex-direction:column}.track button{padding:14px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -292,6 +297,7 @@ footer p{margin:0 0 8px}
     <div class="sub" role="group" aria-label="Espace magasin">
      <button type="button" id="sList" aria-pressed="true">Mes réparations</button>
      <button type="button" id="sNew" aria-pressed="false">Nouvelle demande</button>
+     <button type="button" id="sAcc" aria-pressed="false">Mon compte</button>
     </div>
 
     <div id="subList">
@@ -301,6 +307,27 @@ footer p{margin:0 0 8px}
      <div id="aList"></div>
      <div class="tools"><p class="upd" id="aUpd"></p><button type="button" class="secondary" id="bRefresh">Actualiser</button></div>
      <p class="fine">Vous ne voyez pas un dossier déposé directement à l'atelier ? Votre compte doit d'abord être relié à votre magasin par HMAIG Services : contactez-nous et nous le faisons tout de suite.</p>
+    </div>
+
+    <div id="subAcc" hidden>
+     <div class="acct">
+      <div><small>Magasin</small><b id="acNom"></b></div>
+      <div><small>Contact</small><b id="acContact"></b></div>
+      <div><small>Téléphone</small><b id="acTel"></b></div>
+      <div><small>E-mail de connexion</small><b id="acMail"></b></div>
+     </div>
+     <form id="fPwd" novalidate>
+      <p class="intro"><b>Changer mon mot de passe</b><br>Saisissez votre mot de passe actuel, puis choisissez le nouveau (8 caractères minimum).</p>
+      <div class="grid">
+       <div class="field full"><label for="p_cur">Mot de passe actuel</label><div class="pw"><input id="p_cur" type="password" maxlength="200" autocomplete="current-password"><button type="button" data-eye="p_cur" aria-label="Afficher le mot de passe">Afficher</button></div></div>
+       <div class="field full"><label for="p_new">Nouveau mot de passe</label><div class="pw"><input id="p_new" type="password" maxlength="200" autocomplete="new-password"><button type="button" data-eye="p_new" aria-label="Afficher le mot de passe">Afficher</button></div></div>
+       <div class="field full"><label for="p_new2">Confirmez le nouveau mot de passe</label><input id="p_new2" type="password" maxlength="200" autocomplete="new-password"></div>
+      </div>
+      <div class="notice err" id="pErr" role="alert" hidden></div>
+      <div class="notice" id="pOk" role="status" hidden></div>
+      <button class="primary" type="submit" id="bPwd">Enregistrer le nouveau mot de passe</button>
+      <p class="fine">Vous avez oublié votre mot de passe actuel ? Déconnectez-vous, puis utilisez « Mot de passe oublié » sur la page de connexion : vous recevrez un lien par e-mail.</p>
+     </form>
     </div>
 
     <div id="subNew" hidden>
@@ -558,6 +585,7 @@ function authErr(status,j){
  if(c==='user_already_exists'||m.includes('already registered'))return'EXISTS';
  if(c==='weak_password'||m.includes('password should'))return'Mot de passe trop faible : utilisez au moins 8 caractères.';
  if(c==='same_password'||m.includes('different from the old'))return"Le nouveau mot de passe doit être différent de l'ancien.";
+ if(c==='reauthentication_needed'||m.includes('reauthentication'))return"Pour votre sécurité, déconnectez-vous puis utilisez « Mot de passe oublié » pour choisir un nouveau mot de passe.";
  if(status===429||c.includes('rate_limit')||m.includes('rate limit'))return'Trop de tentatives. Patientez quelques minutes puis réessayez.';
  if(c==='signup_disabled')return'Les créations de compte sont fermées pour le moment. Contactez-nous.';
  if(m.includes('database error'))return'Vérifiez le nom du magasin, le contact et le téléphone, puis réessayez.';
@@ -689,8 +717,9 @@ $('#vReset').addEventListener('submit',async e=>{
 function logout(msg){
  const s=SH.sess;saveSess(null);SH.prof=null;SH.list=null;SH.filter=null;SH.q='';SH.at=0;SH.open.clear();
  // rien du magasin précédent ne doit rester dans la page (ordinateur partagé)
- for(const id of['s_q','n_name','n_phone','n_model','n_serial','n_sale','n_issue'])$('#'+id).value='';
- for(const id of['aList','counts','aUpd','aName','aMail'])$('#'+id).textContent='';
+ for(const id of['s_q','n_name','n_phone','n_model','n_serial','n_sale','n_issue','p_cur','p_new','p_new2'])$('#'+id).value='';
+ for(const id of['aList','counts','aUpd','aName','aMail','acNom','acContact','acTel','acMail'])$('#'+id).textContent='';
+ pwdMsg('');
  showErr($('#aErr'),'');showErr($('#nErr'),'');$('#nOk').hidden=true;$('#fNew').hidden=false;subTab('list');
  if(s){api('POST','/auth/v1/logout',undefined,s.access_token).catch(()=>{})}
  showView('guest');guestMode('login');if(msg)shopErr(msg);
@@ -715,6 +744,7 @@ async function enterApp(note){
  }
  if(!SH.prof){showView('other');return}
  $('#aName').textContent=SH.prof.nom;$('#aMail').textContent=SH.sess.email||SH.prof.email||'';
+ $('#acNom').textContent=SH.prof.nom||'';$('#acContact').textContent=SH.prof.contact||'';$('#acTel').textContent=SH.prof.telephone||'';$('#acMail').textContent=SH.sess.email||SH.prof.email||'';
  fillNew();
  loadList(false);
 }
@@ -788,12 +818,45 @@ $('#bRefresh').onclick=()=>loadList(false);
 
 /* Sous-onglets : liste / nouvelle demande */
 function subTab(w){
- const l=w==='list';
- $('#sList').setAttribute('aria-pressed',l);$('#sNew').setAttribute('aria-pressed',!l);
- $('#subList').hidden=!l;$('#subNew').hidden=l;
+ for(const [k,b,p] of [['list','#sList','#subList'],['new','#sNew','#subNew'],['acc','#sAcc','#subAcc']]){
+  $(b).setAttribute('aria-pressed',k===w);$(p).hidden=k!==w;
+ }
 }
 $('#sList').onclick=()=>{subTab('list');if(Date.now()-SH.at>20000)loadList(true)};
 $('#sNew').onclick=()=>{subTab('new')};
+$('#sAcc').onclick=()=>{subTab('acc')};
+
+/* Changer son mot de passe depuis l'espace (sans e-mail) */
+function pwdMsg(t,err){const e=$('#pErr'),o=$('#pOk');e.hidden=!(err&&t);o.hidden=!(!err&&t);(err?e:o).textContent=t||''}
+$('#fPwd').addEventListener('submit',async e=>{
+ e.preventDefault();pwdMsg('');
+ const cur=$('#p_cur').value,a=$('#p_new').value,c=$('#p_new2').value;
+ const bad=(t,id)=>{pwdMsg(t,true);$('#'+id).focus()};
+ if(!cur)return bad('Indiquez votre mot de passe actuel.','p_cur');
+ if(a.length<8)return bad('Le nouveau mot de passe doit contenir au moins 8 caractères.','p_new');
+ if(a!==c)return bad('Les deux nouveaux mots de passe ne sont pas identiques.','p_new2');
+ if(a===cur)return bad("Le nouveau mot de passe doit être différent de l'actuel.",'p_new');
+ const mail=(SH.sess&&SH.sess.email)||(SH.prof&&SH.prof.email)||'';
+ if(!SH.sess||!mail){pwdMsg('Votre session a expiré. Reconnectez-vous.',true);return}
+ const b=$('#bPwd');b.disabled=true;b.textContent='Enregistrement…';
+ try{
+  // 1) vérifie le mot de passe actuel (protège un ordinateur partagé laissé ouvert)
+  const r1=await api('POST','/auth/v1/token?grant_type=password',{email:mail,password:cur});
+  const j1=await r1.json().catch(()=>({}));
+  if(!r1.ok||!j1.access_token){
+   const m=authErr(r1.status,j1);
+   pwdMsg(/incorrect/.test(m)?'Le mot de passe actuel est incorrect.':(m==='NOT_CONFIRMED'||m==='EXISTS'?'Opération impossible.':m),true);
+  }else{
+   const fresh=toSess(j1);
+   // 2) enregistre le nouveau
+   const r2=await api('PUT','/auth/v1/user',{password:a},fresh.access_token);
+   const j2=await r2.json().catch(()=>({}));
+   if(r2.ok){saveSess(fresh);$('#p_cur').value=$('#p_new').value=$('#p_new2').value='';pwdMsg('Mot de passe modifié. Utilisez-le à votre prochaine connexion.')}
+   else{saveSess(fresh);pwdMsg(authErr(r2.status,j2),true)}
+  }
+ }catch(x){pwdMsg(NETERR,true)}
+ b.disabled=false;b.textContent='Enregistrer le nouveau mot de passe';
+});
 
 /* Nouvelle demande depuis le compte */
 function fillNew(){

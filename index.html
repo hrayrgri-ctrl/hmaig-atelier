@@ -536,7 +536,7 @@ function render(){
  $('#view').innerHTML=V.fn();
  if(V.after)V.after();
 }
-function toast(t){const e=$('#toast');e.textContent=t;e.classList.remove('show');void e.offsetWidth;e.classList.add('show')}
+function toast(t,s){const e=$('#toast');e.textContent=t;e.style.animationDuration=s?s+'s':'';e.classList.remove('show');void e.offsetWidth;e.classList.add('show')}
 function clearDemo(){
  if(!confirm('Supprimer toutes les données fictives et démarrer avec une base vide ?\n\nVos paramètres (société, techniciens) sont conservés.'))return;
  const s=db.settings;db=blank();db.settings=s;save();toast('Base vidée — vous pouvez saisir vos premiers dossiers');go('dash');
@@ -1946,10 +1946,28 @@ function clientHTML(id){
 }
 function addDevice(id){const m=$('#nd_model').value.trim();if(!m){toast('Indiquez le modèle');return}db.devices.push({id:uid(),clientId:id,type:$('#nd_type').value,model:m,serial:$('#nd_serial').value.trim(),notes:''});save();refreshModal()}
 function delDevice(did,cid){if(!confirm('Supprimer cet appareil ?'))return;db.devices=db.devices.filter(d=>d.id!==did);save();refreshModal()}
-function delClient(id){
- const c0=db.clients.find(c=>c.id===id);if(c0&&c0.accountId){toast('Cette fiche est reliée à un compte en ligne : retirez d\'abord l\'accès.');return}
- if(db.repairs.some(r=>r.clientId===id)||db.sav.some(s=>s.storeId===id)||db.docs.some(d=>d.clientId===id)){toast('Impossible : ce client a des dossiers ou des documents.');return}
- if(!confirm('Supprimer cette fiche client et ses appareils ?'))return;db.devices=db.devices.filter(d=>d.clientId!==id);db.clients=db.clients.filter(c=>c.id!==id);save();closeModal();toast('Fiche supprimée');
+async function delClient(id){
+ const c0=db.clients.find(c=>c.id===id);if(!c0)return;
+ const nr=db.repairs.filter(r=>r.clientId===id).length,ns=db.sav.filter(s=>s.storeId===id).length,nd=db.docs.filter(d=>d.clientId===id).length;
+ if(nr||ns||nd){
+  const L=[nr&&nr+' réparation'+(nr>1?'s':''),ns&&ns+' SAV',nd&&nd+' devis ou facture'+(nd>1?'s':'')].filter(Boolean).join(', ');
+  toast('Impossible : la fiche « '+c0.name+' » a encore '+L+'. Supprimez d\'abord ces dossiers, ou gardez la fiche.'+(c0.accountId?' Elle est aussi reliée à un compte en ligne.':''),9);return;
+ }
+ let msg='Supprimer cette fiche client et ses appareils ?';
+ if(c0.accountId){
+  /* fiche reliée à un compte en ligne : on retire l'accès du magasin en même temps (le compte, lui, reste) */
+  if(typeof sbSess==='undefined'||!sbSess){toast('Cette fiche est reliée à un compte en ligne. Connectez-vous (onglet « Compte & synchro ») pour la supprimer : l\'accès du magasin doit être retiré en même temps.',9);return}
+  const a=typeof shopAcc==='function'?shopAcc(c0.accountId):null;
+  msg='Cette fiche est reliée au compte en ligne « '+(a?a.nom:c0.name)+' ».\n\nLa supprimer retire aussi l\'accès du magasin à ses SAV. Son compte reste : il apparaîtra de nouveau « à relier ».\n\nSupprimer la fiche et ses appareils ?';
+ }
+ if(!confirm(msg))return;
+ if(c0.accountId){
+  const a=shopAcc(c0.accountId),st=a?await mirrorSend(c0.accountId,[]):'ok';
+  if(st!=='ok'){toast('Impossible de retirer l\'accès du magasin pour le moment : réessayez dans un instant.',7);return}
+  delete SHOPS.sent[c0.accountId];
+ }
+ db.devices=db.devices.filter(d=>d.clientId!==id);db.clients=db.clients.filter(c=>c.id!==id);save();closeModal();toast('Fiche supprimée'+(c0.accountId?' et accès du magasin retiré':''));
+ if(c0.accountId&&typeof render==='function')render();
 }
 
 /* ============ SAV magasins ============ */
