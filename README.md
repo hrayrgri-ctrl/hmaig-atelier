@@ -17,6 +17,14 @@ Aucun secret dans ce dépôt : la clé publique Supabase est faite pour être vi
 
 Dans l'onglet Stock, le bouton « Importer (.csv) » ajoute des pièces à partir d'un fichier. Colonnes reconnues : Référence ; Désignation ; Catégorie ; Quantité ; Seuil ; Achat HT ; Vente HT ; Fournisseur ; Emplacement (séparateur `;`, `,` ou tabulation ; prix avec virgule acceptés). Une référence déjà au stock n'est jamais dupliquée : si le fichier donne des prix (Achat HT, Vente HT), ils sont mis à jour ; la quantité et les autres champs ne changent pas. Si le verrou administrateur est actif, l'import demande son mot de passe.
 
+## SAV magasin : lecture du bon d'intervention par photo
+
+Dans « Nouveau SAV », le bouton « 📷 Photographier le bon d'intervention » (ou « ou choisir une image ») lit le bon du magasin et remplit seulement **Appareil**, **Code-barres / n° de suivi** et **Panne signalée** (les zones « Produit + Code Barre » et « Description du problème »). Le magasin, les dates et la garantie restent à saisir ; les champs lus sont à vérifier avant d'enregistrer.
+
+- La lecture se fait sur l'appareil avec Tesseract.js (version 5.1.1 figée, contrôle d'intégrité SRI) : la photo n'est envoyée nulle part et rien n'est enregistré de ce qui n'est pas repris dans les trois champs (nom, adresse et téléphone du client final ne sont pas lus).
+- Au premier usage, la bibliothèque et les données de langue française sont téléchargées depuis cdn.jsdelivr.net et tessdata.projectnaptha.com (connexion nécessaire), puis gardées en cache par le navigateur.
+- Deux lectures sont faites (image corrigée de l'éclairage + image brute) et fusionnées ; si rien n'est lu, un message le dit et la saisie à la main reste possible.
+
 ## E-mails automatiques au client
 
 Quand un dossier créé depuis une demande en ligne change d'étape, le client reçoit un e-mail (s'il a laissé son adresse) avec le lien de suivi. À l'étape « Devis envoyé », son devis part en PDF avec le message ; le bouton « ✉ Envoyer par e-mail » d'un devis permet de le renvoyer.
