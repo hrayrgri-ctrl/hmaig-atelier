@@ -53,6 +53,8 @@ main{margin-top:-44px;padding-bottom:36px}
 .pane[hidden]{display:none}
 .notice{margin:0 0 16px;padding:12px 14px;border-radius:12px;background:var(--amber-t);color:var(--amber-x);font-size:14.5px}
 .notice.err{background:var(--red-t);color:var(--red-x)}
+.notice.good{background:var(--green-t);color:var(--green-x)}
+.notice.info{background:var(--soft);color:var(--ink)}
 .who{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 18px}
 .who label{position:relative;display:block;cursor:pointer}
 .who input{position:absolute;opacity:0;inset:0}
@@ -333,6 +335,7 @@ footer p{margin:0 0 8px}
     <div id="subNew" hidden>
      <form id="fNew" novalidate>
       <div class="grid">
+       <div class="field full"><div class="row" style="justify-content:flex-start"><button type="button" class="secondary n_scanBtn" onclick="bonPick(1)">📷 Photographier le bon d'intervention</button><button type="button" class="secondary n_scanBtn" onclick="bonPick(0)">ou choisir une image</button></div><input id="n_cam" type="file" accept="image/*" capture="environment" hidden onchange="bonScan(this)"><input id="n_img" type="file" accept="image/*" hidden onchange="bonScan(this)"><p class="help">Facultatif : la photo est lue sur votre téléphone (elle n'est pas envoyée). Seuls l'appareil, le code-barres et la panne sont repris ; vérifiez-les avant d'envoyer.</p><div class="notice" id="n_scanMsg" role="status" hidden style="margin:0"></div></div>
        <div class="field"><label for="n_name">Contact <i>*</i></label><input id="n_name" type="text" maxlength="120" autocomplete="name"></div>
        <div class="field"><label for="n_phone">Téléphone <i>*</i></label><input id="n_phone" type="tel" inputmode="tel" maxlength="30" autocomplete="tel"></div>
        <div class="field"><label for="n_dtype">Type d'appareil</label><select id="n_dtype"><option>Smartphone</option><option>Tablette</option><option>Ordinateur portable</option><option>PC fixe</option><option>Console de jeux</option><option>Autre</option></select></div>
@@ -718,6 +721,7 @@ function logout(msg){
  const s=SH.sess;saveSess(null);SH.prof=null;SH.list=null;SH.filter=null;SH.q='';SH.at=0;SH.open.clear();
  // rien du magasin précédent ne doit rester dans la page (ordinateur partagé)
  for(const id of['s_q','n_name','n_phone','n_model','n_serial','n_sale','n_issue','p_cur','p_new','p_new2'])$('#'+id).value='';
+ $('#n_scanMsg').hidden=true;
  for(const id of['aList','counts','aUpd','aName','aMail','acNom','acContact','acTel','acMail'])$('#'+id).textContent='';
  pwdMsg('');
  showErr($('#aErr'),'');showErr($('#nErr'),'');$('#nOk').hidden=true;$('#fNew').hidden=false;subTab('list');
@@ -890,10 +894,139 @@ $('#fNew').addEventListener('submit',async e=>{
  $('#nCode').textContent=code;$('#fNew').hidden=true;$('#nOk').hidden=false;window.scrollTo({top:0,behavior:'smooth'});
  loadList(true);
 });
+/* ---------- Lecture d'un bon d'intervention du magasin à partir d'une photo ----------
+   Le texte est lu sur l'appareil (OCR Tesseract.js, version figée) : la photo n'est envoyée nulle part.
+   Seuls la bibliothèque et les données de langue française sont téléchargées une fois (puis gardées en cache).
+   On ne reprend que les deux zones utiles : « Produit + Code Barre » et « Description du problème ». */
+const BON_LIB={src:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',sri:'sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F'};
+let BON_LIBP=null,BON_W=null,BON_LOG=null,BON_BUSY=false;
+function bonLoadLib(){
+ if(window.Tesseract)return Promise.resolve();
+ return BON_LIBP||(BON_LIBP=new Promise((ok,ko)=>{
+  const s=document.createElement('script');s.src=BON_LIB.src;s.integrity=BON_LIB.sri;s.crossOrigin='anonymous';
+  s.onload=()=>window.Tesseract?ok():(BON_LIBP=null,ko(new Error('lecteur indisponible')));
+  s.onerror=()=>{BON_LIBP=null;ko(new Error('connexion'))};
+  document.head.appendChild(s)}));
+}
+async function bonWorker(){
+ await bonLoadLib();
+ if(!BON_W)BON_W=await Tesseract.createWorker('fra',1,{logger:m=>{if(BON_LOG)BON_LOG(m)}});
+ return BON_W;
+}
+/* Photo -> image de taille raisonnable ; sans « plain », on divise aussi par la luminosité locale
+   (efface ombres et éclairage inégal, comme une photo prise de biais sous une lampe) */
+async function bonCanvas(file,plain){
+ let bmp;
+ try{bmp=await createImageBitmap(file,{imageOrientation:'from-image'})}
+ catch(e){bmp=await new Promise((ok,ko)=>{const u=URL.createObjectURL(file),im=new Image();im.onload=()=>{URL.revokeObjectURL(u);ok(im)};im.onerror=()=>ko(new Error('image'));im.src=u})}
+ const w0=bmp.width||bmp.naturalWidth,h0=bmp.height||bmp.naturalHeight;
+ let k=Math.min(1,2200/Math.max(w0,h0));if(w0*k<1400)k=Math.min(2,1500/w0);
+ const w=Math.round(w0*k),h=Math.round(h0*k),c=document.createElement('canvas');c.width=w;c.height=h;
+ const x=c.getContext('2d',{willReadFrequently:true});x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(bmp,0,0,w,h);
+ if(bmp.close)bmp.close();
+ if(plain)return c;
+ const im=x.getImageData(0,0,w,h),d=im.data,n=w*h,g=new Uint8ClampedArray(n),W1=w+1,S=new Uint32Array(W1*(h+1));
+ for(let i=0,p=0;p<n;i+=4,p++)g[p]=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000;
+ for(let y=0;y<h;y++){let row=0;for(let xx=0;xx<w;xx++){row+=g[y*w+xx];S[(y+1)*W1+xx+1]=S[y*W1+xx+1]+row}}
+ const r=Math.max(25,(w/20)|0);
+ for(let y=0;y<h;y++){const y0=Math.max(0,y-r),y1=Math.min(h,y+r+1);
+  for(let xx=0;xx<w;xx++){const x0=Math.max(0,xx-r),x1=Math.min(w,xx+r+1);
+   const m=(S[y1*W1+x1]-S[y0*W1+x1]-S[y1*W1+x0]+S[y0*W1+x0])/((x1-x0)*(y1-y0))||1;
+   const v=Math.max(0,Math.min(255,((g[y*w+xx]/m-0.45)/0.4)*255)),i=(y*w+xx)*4;d[i]=d[i+1]=d[i+2]=v}}
+ x.putImageData(im,0,0);return c;
+}
+function bonWords(d){
+ if(d&&d.words&&d.words.length)return d.words;
+ const o=[];((d&&d.blocks)||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>(l.words||[]).forEach(w=>o.push(w)))));return o;
+}
+/* Mots -> lignes (regroupés par hauteur), chaque ligne triée de gauche à droite */
+function bonRows(words){
+ const W=(words||[]).filter(w=>w&&w.text&&String(w.text).trim()&&w.bbox).map(w=>({t:String(w.text).trim(),x0:w.bbox.x0,x1:w.bbox.x1,y0:w.bbox.y0,y1:w.bbox.y1}));
+ W.sort((a,b)=>(a.y0+a.y1)-(b.y0+b.y1));
+ const hs=W.map(w=>w.y1-w.y0).sort((a,b)=>a-b),mh=hs.length?hs[hs.length>>1]:20,rows=[];
+ for(const w of W){
+  const cy=(w.y0+w.y1)/2,r=rows[rows.length-1];
+  if(r&&Math.abs(cy-r.cy)<=mh*0.6){r.w.push(w);r.cy=(r.cy*(r.w.length-1)+cy)/r.w.length}else rows.push({cy,w:[w]});
+ }
+ rows.forEach(r=>r.w.sort((a,b)=>a.x0-b.x0));rows.mh=mh;return rows;
+}
+/* Cherche « Produit n° … », « Code Barre … » et « Description du problème … » */
+function bonParse(words){
+ const R=bonRows(words),T=r=>r.w.map(w=>w.t).join(' '),mh=R.mh||20;
+ const clean=s=>s.replace(/[|_\[\]{}<>«»~^]+/g,' ').replace(/\s{2,}/g,' ').trim();
+ const num=t=>/^[0-9OoIl|]{3,}$/.test(t)&&/\d/.test(t),fix=t=>t.replace(/[Oo]/g,'0').replace(/[Il|]/g,'1');
+ const out={device:'',serial:'',issue:''};let bi=-1;
+ R.forEach((r,i)=>{
+  const t=T(r);
+  if(!out.device){
+   /* « Produit N° 1 <désignation> » : le mot commence la ligne (aux parasites près) et est suivi du numéro */
+   const k=r.w.findIndex(w=>/^Pro[dc]u[il1]ts?$/i.test(w.t));
+   if(k>=0&&k<=3){let j=k+1;while(j<r.w.length&&j<k+5&&/^(\d+|N[°º'o.]?\d*|[^\p{L}\d]+)$/iu.test(r.w[j].t))j++;
+    const v=clean(r.w.slice(j).map(w=>w.t).join(' '));if(j>k+1&&v.length>2)out.device=v}
+  }
+  if(bi<0&&/Barres?\b/i.test(t)){
+   bi=i;const k=r.w.findIndex(w=>/Barres?$/i.test(w.t));
+   if(k>=0){const d=[];for(let j=k+1;j<r.w.length&&num(r.w[j].t);j++)d.push(fix(r.w[j].t));out.serial=d.join('')}
+  }
+ });
+ if(!out.device&&bi>0){const p=clean(T(R[bi-1])).replace(/^\S+\s+N\S{0,2}\s*\d+\s*/,'');if(p.length>3)out.device=p}
+ if(!out.serial){
+  for(const r of R){const m=T(r).match(/s[ée]rie\s*[:.]?\s*(\S*\d\S*)/i);if(m&&m[1].length>=5){out.serial=m[1];break}}
+ }
+ const di=R.findIndex(r=>/^\W*Descri/i.test(T(r)));
+ if(di>=0){
+  const r=R[di],k=r.w.findIndex(w=>/^Descri/i.test(w.t)),rest=r.w.slice(k+1),vx=rest.length?rest[0].x0:null,parts=[];
+  if(rest.length)parts.push(rest.map(w=>w.t).join(' '));
+  for(let j=di+1;j<R.length&&j<=di+4;j++){
+   const t=T(R[j]);if(/conserver|restitution|Ce bon/i.test(t))break;
+   let ws=R[j].w;
+   ws=vx!=null?ws.filter(w=>w.x0>=vx-mh*0.8):ws.filter(w=>!/^(du|probl[eè]mes?)$/i.test(w.t));
+   if(!ws.length){if(/^\W*du\s+probl/i.test(t))continue;break}
+   parts.push(ws.map(w=>w.t).join(' '));
+  }
+  out.issue=clean(parts.join(' ')).replace(/^du\s+probl[eè]me\s*/i,'');
+ }
+ return out;
+}
+/* Deux lectures (image corrigée + image brute) : on garde la première, complétée ou rallongée par la seconde */
+function bonMerge(a,b){
+ const o={};
+ for(const k of ['device','serial','issue']){const x=a[k]||'',y=b[k]||'';
+  o[k]=!x?y:(y.length>x.length&&y.toLowerCase().startsWith(x.toLowerCase())?y:x)}
+ return o;
+}
+function bonPick(cam){const e=$(cam?'#n_cam':'#n_img');if(e)e.click()}
+async function bonScan(inp){
+ const f=inp.files&&inp.files[0];inp.value='';if(!f||BON_BUSY)return;
+ BON_BUSY=true;
+ const say=(t,kind)=>{const m=$('#n_scanMsg');if(!m)return;m.hidden=false;m.className='notice '+(kind||'');m.textContent=t};
+ const lock=on=>document.querySelectorAll('.n_scanBtn').forEach(b=>b.disabled=on);
+ lock(true);
+ try{
+  say('Préparation de la photo…','info');
+  const c1=await bonCanvas(f),c2=await bonCanvas(f,true);
+  say('Chargement du lecteur de texte (la première fois, quelques secondes)…','info');
+  const w=await bonWorker();let pass=1;
+  BON_LOG=m=>{if(m&&m.status==='recognizing text')say('Lecture du bon… '+Math.round(((pass-1)+(m.progress||0))*50)+' %','info')};
+  const r1=bonParse(bonWords((await w.recognize(c1)).data));pass=2;
+  const r2=bonParse(bonWords((await w.recognize(c2)).data)),res=bonMerge(r1,r2);
+  const put=(id,v)=>{const e=$('#'+id);if(e&&v){e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));return true}return false};
+  const a=put('n_model',res.device),b=put('n_serial',res.serial),c=put('n_issue',res.issue);
+  if(!$('#n_scanMsg'))return;
+  if(a||b||c){
+   const l=[];if(a)l.push('appareil « '+res.device+' »');if(b)l.push('code-barres « '+res.serial+' »');if(c)l.push('panne « '+res.issue+' »');
+   const all=a&&b&&c;
+   say('Lu sur le bon : '+l.join(', ')+'.'+(all?'':' Complétez le reste à la main.')+' Vérifiez ces informations et le type d\'appareil avant d\'envoyer.',all?'good':'');
+  }else say('Je n\'ai pas réussi à lire le bon. Reprenez la photo bien à plat, de face et bien éclairée, ou saisissez à la main.','');
+ }catch(e){
+  BON_W=null;
+  say(e&&e.message==='connexion'?'La lecture de la photo a besoin d\'Internet (la première fois). Saisissez à la main ou réessayez avec du réseau.':'La lecture de la photo a échoué. Saisissez à la main ou réessayez.','');
+ }finally{BON_BUSY=false;lock(false)}
+}
 $('#nList').onclick=()=>{subTab('list')};
 $('#nAgain').onclick=()=>{
  for(const id of['n_model','n_serial','n_sale','n_issue'])$('#'+id).value='';
- showErr($('#nErr'),'');$('#nOk').hidden=true;$('#fNew').hidden=false;window.scrollTo({top:0});
+ showErr($('#nErr'),'');$('#n_scanMsg').hidden=true;$('#nOk').hidden=true;$('#fNew').hidden=false;window.scrollTo({top:0});
 };
 
 /* Affichage de l'onglet + actualisation automatique */
