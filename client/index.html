@@ -899,7 +899,7 @@ $('#fNew').addEventListener('submit',async e=>{
    Seuls la bibliothèque et les données de langue française sont téléchargées une fois (puis gardées en cache).
    On ne reprend que les deux zones utiles : « Produit + Code Barre » et « Description du problème ». */
 const BON_LIB={src:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js',sri:'sha384-GJqSu7vueQ9qN0E9yLPb3Wtpd7OrgK8KmYzC8T1IysG1bcvxvIO4qtYR/D3A991F'};
-let BON_LIBP=null,BON_W=null,BON_LOG=null,BON_BUSY=false;
+let BON_LIBP=null,BON_W=null,BON_WD=null,BON_LOG=null,BON_BUSY=false;
 function bonLoadLib(){
  if(window.Tesseract)return Promise.resolve();
  return BON_LIBP||(BON_LIBP=new Promise((ok,ko)=>{
@@ -912,6 +912,13 @@ async function bonWorker(){
  await bonLoadLib();
  if(!BON_W)BON_W=await Tesseract.createWorker('fra',1,{logger:m=>{if(BON_LOG)BON_LOG(m)}});
  return BON_W;
+}
+/* Second lecteur, réservé aux chiffres : relit la seule zone du code-barres (agrandie, uniquement 0-9) */
+async function bonDigitWorker(){
+ await bonLoadLib();
+ if(!BON_WD){const w=await Tesseract.createWorker('fra',1,{});
+  await w.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:'7'});BON_WD=w}
+ return BON_WD;
 }
 /* Photo -> image de taille raisonnable ; sans « plain », on divise aussi par la luminosité locale
    (efface ombres et éclairage inégal, comme une photo prise de biais sous une lampe) */
@@ -941,7 +948,7 @@ function bonWords(d){
 }
 /* Mots -> lignes (regroupés par hauteur), chaque ligne triée de gauche à droite */
 function bonRows(words){
- const W=(words||[]).filter(w=>w&&w.text&&String(w.text).trim()&&w.bbox).map(w=>({t:String(w.text).trim(),x0:w.bbox.x0,x1:w.bbox.x1,y0:w.bbox.y0,y1:w.bbox.y1}));
+ const W=(words||[]).filter(w=>w&&w.text&&String(w.text).trim()&&w.bbox).map(w=>({t:String(w.text).trim(),c:typeof w.confidence==='number'?w.confidence:100,x0:w.bbox.x0,x1:w.bbox.x1,y0:w.bbox.y0,y1:w.bbox.y1}));
  W.sort((a,b)=>(a.y0+a.y1)-(b.y0+b.y1));
  const hs=W.map(w=>w.y1-w.y0).sort((a,b)=>a-b),mh=hs.length?hs[hs.length>>1]:20,rows=[];
  for(const w of W){
@@ -955,34 +962,51 @@ function bonParse(words){
  const R=bonRows(words),T=r=>r.w.map(w=>w.t).join(' '),mh=R.mh||20;
  const clean=s=>s.replace(/[|_\[\]{}<>«»~^]+/g,' ').replace(/\s{2,}/g,' ').trim();
  const num=t=>/^[0-9OoIl|]{3,}$/.test(t)&&/\d/.test(t),fix=t=>t.replace(/[Oo]/g,'0').replace(/[Il|]/g,'1');
- const out={device:'',serial:'',issue:''};let bi=-1;
+ const out={device:'',serial:'',issue:'',bar:null,q:0};let bi=-1,pi=-1;
+ const lev=(a,b)=>{const d=[];for(let i=0;i<=a.length;i++)d[i]=[i];for(let j=1;j<=b.length;j++)d[0][j]=j;
+  for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[a.length][b.length]};
+ const like=(t,w)=>{const x=t.toLowerCase().replace(/[^a-zà-ÿ]/g,'');return x.length>=w.length-1&&lev(x,w)<=1};
+ const isBarre=t=>like(t,'barre')||like(t,'barres');
+ const A=[];R.forEach(r=>r.w.forEach(w=>A.push(w)));out.q=A.filter(w=>w.c>=70).length;
+ /* Code-barres : uniquement les chiffres situés SUR LA MÊME LIGNE que « Code Barre », à droite de l'étiquette
+    (jamais la ligne du dessous, « N° de série » / IMEI) ; 8 à 14 chiffres, sinon rien */
+ const anchor=(i,L)=>{
+  bi=i;const lh=Math.max(L.y1-L.y0,mh),cy=(L.y0+L.y1)/2;
+  const vs=A.filter(w=>w.x0>=L.x1-2&&Math.abs((w.y0+w.y1)/2-cy)<=lh*0.6).sort((a,b)=>a.x0-b.x0);
+  const d=[];let last=L.x1,vb=null;
+  for(const w of vs){if(!num(w.t)||(d.length&&w.x0-last>lh*3))break;d.push(fix(w.t));last=w.x1;
+   vb=vb?{x0:vb.x0,x1:w.x1,y0:Math.min(vb.y0,w.y0),y1:Math.max(vb.y1,w.y1)}:{x0:w.x0,x1:w.x1,y0:w.y0,y1:w.y1}}
+  const v=d.join('');if(/^\d{8,14}$/.test(v))out.serial=v;
+  out.bar={x0:L.x0,x1:L.x1,y0:L.y0,y1:L.y1,vx0:vb?vb.x0:null,vx1:vb?vb.x1:null,vy0:vb?vb.y0:null,vy1:vb?vb.y1:null};
+ };
  R.forEach((r,i)=>{
   const t=T(r);
   if(!out.device){
    /* « Produit N° 1 <désignation> » : le mot commence la ligne (aux parasites près) et est suivi du numéro */
    const k=r.w.findIndex(w=>/^Pro[dc]u[il1]ts?$/i.test(w.t));
    if(k>=0&&k<=3){let j=k+1;while(j<r.w.length&&j<k+5&&/^(\d+|N[°º'o.]?\d*|[^\p{L}\d]+)$/iu.test(r.w[j].t))j++;
-    const v=clean(r.w.slice(j).map(w=>w.t).join(' '));if(j>k+1&&v.length>2)out.device=v}
+    const v=clean(r.w.slice(j).map(w=>w.t).join(' '));if(j>k+1&&v.length>2){out.device=v;pi=i}}
   }
-  if(bi<0&&/Barres?\b/i.test(t)){
-   bi=i;const k=r.w.findIndex(w=>/Barres?$/i.test(w.t));
-   if(k>=0){const d=[];for(let j=k+1;j<r.w.length&&num(r.w[j].t);j++)d.push(fix(r.w[j].t));out.serial=d.join('')}
+  if(bi<0){
+   const k=r.w.findIndex((w,j)=>isBarre(w.t)&&(j===0||like(r.w[j-1].t,'code')||(j+1<r.w.length&&num(r.w[j+1].t))));
+   if(k>=0)anchor(i,r.w[k]);
   }
  });
- if(!out.device&&bi>0){const p=clean(T(R[bi-1])).replace(/^\S+\s+N\S{0,2}\s*\d+\s*/,'');if(p.length>3)out.device=p}
- if(!out.serial){
-  for(const r of R){const m=T(r).match(/s[ée]rie\s*[:.]?\s*(\S*\d\S*)/i);if(m&&m[1].length>=5){out.serial=m[1];break}}
+ if(bi<0&&pi>=0&&R[pi+1]&&R[pi+1].w.length>1&&like(R[pi+1].w[0].t,'code')){
+  const r=R[pi+1];let k=1;while(k+1<r.w.length&&k<2&&!num(r.w[k+1].t))k++;anchor(pi+1,r.w[Math.min(k,r.w.length-1)]);
  }
+ if(!out.device&&bi>0){const p=clean(T(R[bi-1])).replace(/^\S+\s+N\S{0,2}\s*\d+\s*/,'');if(p.length>3)out.device=p}
  const di=R.findIndex(r=>/^\W*Descri/i.test(T(r)));
  if(di>=0){
+  const okw=w=>w.c>=30&&/[A-Za-z0-9\u00C0-\u00FF]/.test(w.t)&&(w.t.length>1||/[A-Za-z0-9àâéèêôùç]/.test(w.t)),txt=ws=>{const f=ws.filter(okw);return (f.length?f:ws).map(w=>w.t).join(' ')};
   const r=R[di],k=r.w.findIndex(w=>/^Descri/i.test(w.t)),rest=r.w.slice(k+1),vx=rest.length?rest[0].x0:null,parts=[];
-  if(rest.length)parts.push(rest.map(w=>w.t).join(' '));
+  if(rest.length)parts.push(txt(rest));
   for(let j=di+1;j<R.length&&j<=di+4;j++){
    const t=T(R[j]);if(/conserver|restitution|Ce bon/i.test(t))break;
    let ws=R[j].w;
    ws=vx!=null?ws.filter(w=>w.x0>=vx-mh*0.8):ws.filter(w=>!/^(du|probl[eè]mes?)$/i.test(w.t));
    if(!ws.length){if(/^\W*du\s+probl/i.test(t))continue;break}
-   parts.push(ws.map(w=>w.t).join(' '));
+   parts.push(txt(ws));
   }
   out.issue=clean(parts.join(' ')).replace(/^du\s+probl[eè]me\s*/i,'');
  }
@@ -990,10 +1014,47 @@ function bonParse(words){
 }
 /* Deux lectures (image corrigée + image brute) : on garde la première, complétée ou rallongée par la seconde */
 function bonMerge(a,b){
+ if((b.q||0)>(a.q||0)){const t=a;a=b;b=t}
  const o={};
- for(const k of ['device','serial','issue']){const x=a[k]||'',y=b[k]||'';
+ for(const k of ['device','issue']){const x=a[k]||'',y=b[k]||'';
   o[k]=!x?y:(y.length>x.length&&y.toLowerCase().startsWith(x.toLowerCase())?y:x)}
- return o;
+ o.serial='';return o;
+}
+/* Code-barres : la relecture ciblée (zone agrandie, chiffres seulement) l'emporte ; sauf si les deux lectures de la page
+   sont identiques et que la relecture n'ajoute que 1-2 chiffres en fin (parasites). Jamais autre chose que 8 à 14 chiffres. */
+function bonSerial(c){
+ const ok=s=>/^\d{8,14}$/.test(s||''),k=c[0],a=c[1],b=c[2];
+ if(!ok(k))return ok(a)?a:(ok(b)?b:'');
+ if(ok(a)&&a===b&&k.length>a.length&&k.length-a.length<=2&&k.startsWith(a))return a;
+ return k;
+}
+/* Découpe agrandie de la seule zone du code-barres (même ligne que « Code Barre », à droite de l'étiquette) */
+function bonBarCrop(c,b){
+ const lh=Math.max(b.y1-b.y0,b.vy1!=null?b.vy1-b.vy0:0,12);
+ const y0=Math.max(0,Math.min(b.y0,b.vy0==null?b.y0:b.vy0)-lh*0.3),y1=Math.min(c.height,Math.max(b.y1,b.vy1==null?b.y1:b.vy1)+lh*0.3);
+ const x0=Math.max(b.x1+2,b.vx0==null?b.x1+lh*0.5:b.vx0-lh*0.8),x1=Math.min(c.width,b.vx1==null?x0+c.width*0.3:b.vx1+lh*6);
+ const k=Math.max(1,Math.min(4,52/lh)),pad=16,w=Math.max(10,Math.round((x1-x0)*k)),h=Math.max(10,Math.round((y1-y0)*k));
+ const o=document.createElement('canvas');o.width=w+2*pad;o.height=h+2*pad;
+ const x=o.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,o.width,o.height);x.imageSmoothingQuality='high';
+ x.drawImage(c,x0,y0,x1-x0,y1-y0,pad,pad,w,h);return o;
+}
+/* Lit la photo : renvoie {device,serial,issue} (chaînes vides si non lu). say(texte) affiche l'avancement. */
+async function bonRead(f,say){
+ say('Préparation de la photo…');
+ const c1=await bonCanvas(f),c2=await bonCanvas(f,true);
+ say('Chargement du lecteur de texte (la première fois, quelques secondes)…');
+ const w=await bonWorker();let pass=1;
+ BON_LOG=m=>{if(m&&m.status==='recognizing text')say('Lecture du bon… '+Math.round(((pass-1)+(m.progress||0))*45)+' %')};
+ const p1=bonParse(bonWords((await w.recognize(c1)).data));pass=2;
+ const p2=bonParse(bonWords((await w.recognize(c2)).data)),res=bonMerge(p1,p2);
+ let crop='';const bar=p2.bar||p1.bar;
+ if(bar){
+  say('Vérification du code-barres…');BON_LOG=null;
+  try{const d=await bonDigitWorker();crop=String(((await d.recognize(bonBarCrop(c2,bar))).data.text)||'').replace(/\D/g,'')}
+  catch(e){crop='';BON_WD=null}
+ }
+ res.serial=bonSerial([crop,p2.serial,p1.serial]);
+ return res;
 }
 function bonPick(cam){const e=$(cam?'#n_cam':'#n_img');if(e)e.click()}
 async function bonScan(inp){
@@ -1003,13 +1064,7 @@ async function bonScan(inp){
  const lock=on=>document.querySelectorAll('.n_scanBtn').forEach(b=>b.disabled=on);
  lock(true);
  try{
-  say('Préparation de la photo…','info');
-  const c1=await bonCanvas(f),c2=await bonCanvas(f,true);
-  say('Chargement du lecteur de texte (la première fois, quelques secondes)…','info');
-  const w=await bonWorker();let pass=1;
-  BON_LOG=m=>{if(m&&m.status==='recognizing text')say('Lecture du bon… '+Math.round(((pass-1)+(m.progress||0))*50)+' %','info')};
-  const r1=bonParse(bonWords((await w.recognize(c1)).data));pass=2;
-  const r2=bonParse(bonWords((await w.recognize(c2)).data)),res=bonMerge(r1,r2);
+  const res=await bonRead(f,t=>say(t,'info'));
   const put=(id,v)=>{const e=$('#'+id);if(e&&v){e.value=v;e.dispatchEvent(new Event('input',{bubbles:true}));return true}return false};
   const a=put('n_model',res.device),b=put('n_serial',res.serial),c=put('n_issue',res.issue);
   if(!$('#n_scanMsg'))return;
@@ -1019,7 +1074,7 @@ async function bonScan(inp){
    say('Lu sur le bon : '+l.join(', ')+'.'+(all?'':' Complétez le reste à la main.')+' Vérifiez ces informations et le type d\'appareil avant d\'envoyer.',all?'good':'');
   }else say('Je n\'ai pas réussi à lire le bon. Reprenez la photo bien à plat, de face et bien éclairée, ou saisissez à la main.','');
  }catch(e){
-  BON_W=null;
+  BON_W=null;BON_WD=null;
   say(e&&e.message==='connexion'?'La lecture de la photo a besoin d\'Internet (la première fois). Saisissez à la main ou réessayez avec du réseau.':'La lecture de la photo a échoué. Saisissez à la main ou réessayez.','');
  }finally{BON_BUSY=false;lock(false)}
 }

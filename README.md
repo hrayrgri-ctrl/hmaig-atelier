@@ -23,6 +23,7 @@ Dans « Nouveau SAV », le bouton « 📷 Photographier le bon d'intervention »
 
 - La lecture se fait sur l'appareil avec Tesseract.js (version 5.1.1 figée, contrôle d'intégrité SRI) : la photo n'est envoyée nulle part et rien n'est enregistré de ce qui n'est pas repris dans les trois champs (nom, adresse et téléphone du client final ne sont pas lus).
 - Au premier usage, la bibliothèque et les données de langue française sont téléchargées depuis cdn.jsdelivr.net et tessdata.projectnaptha.com (connexion nécessaire), puis gardées en cache par le navigateur.
+- Le code-barres n'est lu que sur la ligne « Code Barre » (8 à 14 chiffres, jamais la ligne « N° de série » / IMEI du dessous) et relu sur une découpe agrandie de cette seule zone, en chiffres uniquement ; si rien de fiable n'est lu, le champ reste vide.
 - Deux lectures sont faites (image corrigée de l'éclairage + image brute) et fusionnées ; si rien n'est lu, un message le dit et la saisie à la main reste possible.
 - La même lecture est disponible dans l'espace magasin du site client (`/client/`, onglet « Nouvelle demande ») : elle remplit **Marque et modèle**, **Code-barres ou n° de suivi** et **Quelle est la panne ?**, sans toucher au contact, au téléphone, au type d'appareil ni à la date de vente.
 
